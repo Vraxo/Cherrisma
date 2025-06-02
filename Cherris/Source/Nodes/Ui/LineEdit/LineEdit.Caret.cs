@@ -16,8 +16,8 @@ public partial class LineEdit
         private LineEdit _parentLineEdit;
 
         private float _arrowKeyTimer = 0f;
-        private const float ArrowKeyDelay = 0.4f; // Changed from 1.0f to 0.4f
-        private const float ArrowKeySpeed = 0.04f; // Changed from 0.1f to 0.04f
+        private const float ArrowKeyDelay = 0.4f;
+        private const float ArrowKeySpeed = 0.04f;
         private bool _movingRight = false; // To track continuous movement direction
 
         private int _caretDisplayPositionX; // Position relative to the start of visible text
@@ -211,26 +211,32 @@ public partial class LineEdit
 
             if (CaretDisplayPositionX > 0 && _parentLineEdit.Text.Length > 0)
             {
-                string textBeforeCaret = _parentLineEdit.Text.Substring(
-                    _parentLineEdit.TextStartIndex,
-                    Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
-                );
+                // Ensure that the substring length does not exceed available characters from TextStartIndex
+                int lengthOfTextBeforeCaretInVisiblePortion = Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex);
 
-                if (!string.IsNullOrEmpty(textBeforeCaret))
+                if (lengthOfTextBeforeCaretInVisiblePortion > 0) // Only measure if there's actual text
                 {
-                    var dwriteFactory = context.DWriteFactory;
-                    var owningWindow = context.OwnerWindow;
-                    IDWriteTextFormat? textFormat = owningWindow?.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+                    string textBeforeCaret = _parentLineEdit.Text.Substring(
+                        _parentLineEdit.TextStartIndex,
+                        lengthOfTextBeforeCaretInVisiblePortion
+                    );
 
-                    if (textFormat != null)
+                    if (!string.IsNullOrEmpty(textBeforeCaret)) // Double check, though lengthOfTextBeforeCaretInVisiblePortion > 0 should mean it's not empty
                     {
-                        textFormat.WordWrapping = WordWrapping.NoWrap;
-                        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
-                            textBeforeCaret,
-                            textFormat,
-                            float.MaxValue,
-                            _parentLineEdit.Size.Y);
-                        caretXOffset = textLayout.Metrics.Width;
+                        var dwriteFactory = context.DWriteFactory;
+                        var owningWindow = context.OwnerWindow;
+                        IDWriteTextFormat? textFormat = owningWindow?.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+
+                        if (textFormat != null)
+                        {
+                            textFormat.WordWrapping = WordWrapping.NoWrap;
+                            using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                                textBeforeCaret,
+                                textFormat,
+                                float.MaxValue,
+                                _parentLineEdit.Size.Y);
+                            caretXOffset = textLayout.Metrics.WidthIncludingTrailingWhitespace; // Use WidthIncludingTrailingWhitespace
+                        }
                     }
                 }
             }
