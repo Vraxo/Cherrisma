@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Vortice.DirectWrite;
+using SharpGen.Runtime; // Required for Result
 
 namespace Cherris;
 
@@ -486,46 +487,109 @@ public partial class LineEdit : Button
         if (Size.X <= TextOrigin.X * 2) return 0;
 
         float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0) return 0;
+
         var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
-        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null) return (int)(availableWidth / 8); // Rough fallback
+        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: Owning window or DWriteFactory not available. Falling back to rough estimate.");
+            return (int)(availableWidth / 8); // Rough fallback
+        }
         IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
 
-        // Measure an average character like 'm' or 'W'
-        float avgCharWidth = MeasureTextWidth(dwriteFactory, "m", Styles.Current);
-        if (avgCharWidth <= 0) avgCharWidth = 8; // Fallback
+        if (TextStartIndex >= Text.Length && Text.Length > 0)
+        {
+            return 0;
+        }
+        if (Text.Length == 0) return 0;
 
-        return (int)(availableWidth / avgCharWidth);
+        string textToMeasure = Text.Substring(TextStartIndex);
+        if (string.IsNullOrEmpty(textToMeasure)) return 0;
+
+        IDWriteTextFormat? textFormat = owningAppWindow.GetOrCreateTextFormat(Styles.Current);
+        if (textFormat == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+            textToMeasure,
+            textFormat,
+            float.MaxValue,
+            Size.Y
+        );
+
+        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[textToMeasure.Length];
+        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
+
+        if (result.Failure)
+        {
+            Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
+            return (int)(availableWidth / 8); // Fallback on error
+        }
+
+        if (actualClusterCount == 0) return 0;
+
+        float currentCumulativeWidth = 0;
+        int displayableCharacterLengthInSubstring = 0;
+
+        for (int i = 0; i < actualClusterCount; i++)
+        {
+            ClusterMetrics cluster = clusterMetricsBuffer[i];
+            if (currentCumulativeWidth + cluster.Width <= availableWidth)
+            {
+                currentCumulativeWidth += cluster.Width;
+                displayableCharacterLengthInSubstring += (int)cluster.Length;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return displayableCharacterLengthInSubstring;
     }
+
 
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
         int displayableChars = GetDisplayableCharactersCount();
-        if (displayableChars <= 0)
+        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
         {
-            TextStartIndex = CaretLogicalPosition; // Effectively hide all text
+            TextStartIndex = CaretLogicalPosition;
             _caret.CaretDisplayPositionX = 0;
+            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
+            return;
+        }
+        if (Text.Length == 0)
+        {
+            TextStartIndex = 0;
+            _caret.CaretDisplayPositionX = 0;
+            CaretLogicalPosition = 0;
             return;
         }
 
-        // If caret is to the left of the visible window
+
         if (CaretLogicalPosition < TextStartIndex)
         {
             TextStartIndex = CaretLogicalPosition;
         }
-        // If caret is to the right of the visible window
         else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
         {
-            TextStartIndex = CaretLogicalPosition - displayableChars + 1; // +1 to ensure caret is visible
-            if (TextStartIndex + displayableChars > Text.Length) // Don't scroll past end of text
-            {
-                TextStartIndex = Math.Max(0, Text.Length - displayableChars);
-            }
+            TextStartIndex = CaretLogicalPosition - displayableChars + 1;
         }
-        TextStartIndex = Math.Max(0, TextStartIndex); // Ensure TextStartIndex is not negative
 
-        // Update caret's display position (relative to the start of visible text)
+        TextStartIndex = Math.Max(0, TextStartIndex);
+        if (TextStartIndex + displayableChars > Text.Length && displayableChars > 0)
+        {
+            TextStartIndex = Math.Max(0, Text.Length - displayableChars);
+        }
+        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
+
+
         _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
-        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars);
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
     }
 
 
@@ -537,8 +601,6 @@ public partial class LineEdit : Button
         }
         if (_undoStack.Count >= HistoryLimit)
         {
-            // A more efficient way would be a circular buffer or removing from the bottom of a List.
-            // For simplicity with Stack, this is not ideal but works.
             var tempList = _undoStack.ToList();
             tempList.RemoveAt(0); // Remove oldest
             _undoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
@@ -561,11 +623,11 @@ public partial class LineEdit : Button
             }
 
             LineEditState previousState = _undoStack.Pop();
-            _text = previousState.Text; // Assign directly to bypass Text setter's undo push
+            _text = previousState.Text;
             CaretLogicalPosition = previousState.CaretPosition;
             TextStartIndex = previousState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text); // Manually invoke event
+            TextChanged?.Invoke(this, _text);
             UpdateCaretDisplayPositionAndStartIndex();
         }
     }
@@ -584,11 +646,11 @@ public partial class LineEdit : Button
             }
 
             LineEditState nextState = _redoStack.Pop();
-            _text = nextState.Text; // Assign directly
+            _text = nextState.Text;
             CaretLogicalPosition = nextState.CaretPosition;
             TextStartIndex = nextState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text); // Manually invoke event
+            TextChanged?.Invoke(this, _text);
             UpdateCaretDisplayPositionAndStartIndex();
         }
     }
@@ -607,7 +669,6 @@ public partial class LineEdit : Button
             return mainAppWindow.GetLocalMousePosition();
         }
 
-        // Fallback if no window context, though this should ideally not be reached in a UI context
         Log.Warning($"LineEdit '{Name}': Could not determine owning window for local mouse position. Using global Input.MousePosition.");
         return Input.MousePosition;
     }
