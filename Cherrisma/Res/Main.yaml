@@ -1,0 +1,4 @@
+Node: MainScene::MainScene
+children:
+  - Node: HSLider::HSlider
+    Position: [250, 250]

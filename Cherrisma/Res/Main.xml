@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MainScene name="MainScene">
+	<HSlider name="HSlider">
+		<Position x="250" y="250" />
+		<AutoPlay>true</AutoPlay>
+	</HSlider>
+	<Button name="MyButton">
+		<Size x="100" y="30" />
+	</Button>
+	<HSlider name="mf" />
+</MainScene>

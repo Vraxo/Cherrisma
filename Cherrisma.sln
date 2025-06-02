@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cherrisma", "Cherrisma\Cherrisma.csproj", "{96C2FECB-C0C1-4509-812A-EA118DA9A0CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cherris", "Cherris\Cherris.csproj", "{8095E798-165D-4D8A-8266-98A84D5534C6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{96C2FECB-C0C1-4509-812A-EA118DA9A0CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96C2FECB-C0C1-4509-812A-EA118DA9A0CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96C2FECB-C0C1-4509-812A-EA118DA9A0CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96C2FECB-C0C1-4509-812A-EA118DA9A0CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8095E798-165D-4D8A-8266-98A84D5534C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8095E798-165D-4D8A-8266-98A84D5534C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8095E798-165D-4D8A-8266-98A84D5534C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8095E798-165D-4D8A-8266-98A84D5534C6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
