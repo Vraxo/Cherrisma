@@ -8,7 +8,7 @@ public partial class LineEdit
 {
     protected class Caret : VisualItem
     {
-        public float MaxTime { get; set; } = 0.5f;
+        public float MaxTime { get; set; } = 3.0f; // Adjusted from 0.5f
         private const byte MinAlphaByte = 0;
         private const byte MaxAlphaByte = 255;
         private float _timer = 0;
@@ -119,8 +119,10 @@ public partial class LineEdit
                 Vector2 localMousePos = _parentLineEdit.GetLocalMousePosition(); // Mouse pos relative to LineEdit's window
 
                 // Check if click is within LineEdit's bounds
+                // Using visual top-left for hit testing
+                Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
                 Rect lineEditBounds = new Rect(
-                    _parentLineEdit.GlobalPosition.X, _parentLineEdit.GlobalPosition.Y,
+                    lineEditVisualTopLeft.X, lineEditVisualTopLeft.Y,
                     _parentLineEdit.Size.X, _parentLineEdit.Size.Y);
 
                 if (lineEditBounds.Contains(localMousePos.X, localMousePos.Y))
@@ -154,9 +156,14 @@ public partial class LineEdit
             if (owningWindow == null || owningWindow.DWriteFactory == null) return; // Cannot measure text
             IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
 
+            // Calculate the visual top-left of the LineEdit's actual rendering box
+            Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
+            // Calculate the top-left of the text rendering area (inside padding/TextOrigin)
+            Vector2 textRenderAreaVisualTopLeft = lineEditVisualTopLeft + _parentLineEdit.TextOrigin;
 
             // Mouse X relative to the start of the text rendering area within LineEdit
-            float mouseXInTextRenderArea = localMousePos.X - (_parentLineEdit.GlobalPosition.X + _parentLineEdit.TextOrigin.X);
+            float mouseXInTextRenderArea = localMousePos.X - textRenderAreaVisualTopLeft.X;
+
 
             string visibleText = _parentLineEdit.Text.Substring(
                 _parentLineEdit.TextStartIndex,
@@ -165,8 +172,6 @@ public partial class LineEdit
 
             if (string.IsNullOrEmpty(visibleText))
             {
-                // If visible text is empty but there's actual text (e.g. all scrolled off)
-                // or if text is genuinely empty.
                 _parentLineEdit.CaretLogicalPosition = (mouseXInTextRenderArea < 0 && _parentLineEdit.TextStartIndex > 0) ? _parentLineEdit.TextStartIndex : _parentLineEdit.TextStartIndex;
                 _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
                 return;
@@ -178,29 +183,15 @@ public partial class LineEdit
             using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
                 visibleText,
                 textFormat,
-                _parentLineEdit.Size.X, // MaxWidth can be the LineEdit's width
-                _parentLineEdit.Size.Y  // MaxHeight
+                _parentLineEdit.Size.X,
+                _parentLineEdit.Size.Y
             );
 
             textLayout.WordWrapping = WordWrapping.NoWrap;
 
             textLayout.HitTestPoint(mouseXInTextRenderArea, 0, out var isTrailingHit, out var isInside, out var metrics);
 
-            // metrics.textPosition is the index within the *visibleText* string.
             int newCaretIndexInVisibleText = (int)metrics.TextPosition;
-            if (isTrailingHit && newCaretIndexInVisibleText < visibleText.Length)
-            {
-                // If clicked after the character, usually means caret goes after it.
-                // For the last char, HitTestTextPosition might give length, trailing means after that.
-                // If it's a leading click on char N, position is N.
-                // If it's a trailing click on char N, position is N+1.
-                // The DWrite behavior for HitTestPoint gives the index of the character *before* the click.
-                // If it's a trailing hit, it means the click was closer to the end of that character.
-                // So, if trailing and not the last char, move to next char's start.
-                // newCaretIndexInVisibleText = (int)metrics.TextPosition + (isTrailingHit ? 1 : 0);
-            }
-            // Let's refine: if trailing, it means the point is closer to the character *after* metrics.TextPosition
-            // So, the caret should be at metrics.TextPosition + 1
             if (isTrailingHit) newCaretIndexInVisibleText = (int)metrics.TextPosition + (int)metrics.Length;
 
 
@@ -211,12 +202,15 @@ public partial class LineEdit
 
         private Rect GetCaretLayoutRect(DrawingContext context)
         {
-            Vector2 lineEditContentStartPos = _parentLineEdit.GlobalPosition + _parentLineEdit.TextOrigin;
+            // Determine the visual top-left of the LineEdit's box
+            Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
+            // Determine the visual top-left of the text rendering area (inside TextOrigin padding)
+            Vector2 textRenderAreaVisualTopLeft = lineEditVisualTopLeft + _parentLineEdit.TextOrigin;
+
             float caretXOffset = 0;
 
             if (CaretDisplayPositionX > 0 && _parentLineEdit.Text.Length > 0)
             {
-                // Measure the width of the text up to the caret's display position
                 string textBeforeCaret = _parentLineEdit.Text.Substring(
                     _parentLineEdit.TextStartIndex,
                     Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
@@ -231,27 +225,30 @@ public partial class LineEdit
                     if (textFormat != null)
                     {
                         textFormat.WordWrapping = WordWrapping.NoWrap;
-
                         using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
                             textBeforeCaret,
                             textFormat,
-                            float.MaxValue, // No wrapping for measurement
+                            float.MaxValue,
                             _parentLineEdit.Size.Y);
-
                         caretXOffset = textLayout.Metrics.Width;
                     }
                 }
             }
 
-            // Estimate caret width (e.g., 1-2 pixels or measure "|")
             float caretWidth = _parentLineEdit.MeasureSingleCharWidth(context, "|", _parentLineEdit.Styles.Current);
-            if (caretWidth <= 0) caretWidth = 2; // Fallback if measurement fails
+            if (caretWidth <= 0) caretWidth = 2;
+
+            float caretRectX = textRenderAreaVisualTopLeft.X + caretXOffset - caretWidth / 2f;
+            float caretRectY = textRenderAreaVisualTopLeft.Y;
+            // Caret height should be consistent with the text layout height
+            float caretRectHeight = _parentLineEdit.Size.Y - _parentLineEdit.TextOrigin.Y * 2;
+
 
             return new Rect(
-                lineEditContentStartPos.X + caretXOffset - caretWidth / 2f, // Center caret roughly
-                lineEditContentStartPos.Y,
+                caretRectX,
+                caretRectY,
                 caretWidth,
-                _parentLineEdit.Size.Y // Full height of LineEdit
+                Math.Max(0, caretRectHeight)
             );
         }
 

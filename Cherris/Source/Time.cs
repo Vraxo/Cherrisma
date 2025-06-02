@@ -2,5 +2,5 @@
 
 public class Time
 {
-    public static float Delta = 0.1f;
+    public static float Delta { get; internal set; } = 1f / 60f; // Default to 60 FPS
 }

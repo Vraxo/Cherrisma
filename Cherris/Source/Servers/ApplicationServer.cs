@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using YamlDotNet.Serialization;
 
 namespace Cherris;
@@ -14,6 +15,9 @@ public sealed class ApplicationServer
     private const string LogFilePath = "Res/Cherris/Log.txt";
 
     public static ApplicationServer Instance => lazyInstance.Value;
+
+    private readonly Stopwatch deltaTimeStopwatch = new();
+    private long lastDeltaTimeTicks = 0;
 
     private ApplicationServer()
     {
@@ -43,6 +47,9 @@ public sealed class ApplicationServer
             Log.Error("Main window was not initialized.");
             return;
         }
+
+        deltaTimeStopwatch.Start();
+        lastDeltaTimeTicks = deltaTimeStopwatch.ElapsedTicks;
 
         MainLoop();
 
@@ -100,6 +107,14 @@ public sealed class ApplicationServer
     {
         while (mainWindow != null && mainWindow.IsOpen)
         {
+            long currentTicks = deltaTimeStopwatch.ElapsedTicks;
+            long elapsedFrameTicks = currentTicks - lastDeltaTimeTicks;
+            Time.Delta = (float)elapsedFrameTicks / TimeSpan.TicksPerSecond;
+            // Clamp delta time to prevent extreme values (e.g., after a breakpoint or heavy stutter)
+            // Min delta of 0.001s (1000 FPS), Max delta of ~0.033s (~30 FPS)
+            Time.Delta = Math.Clamp(Time.Delta, 0.001f, 0.033f);
+            lastDeltaTimeTicks = currentTicks;
+
             ProcessSystemMessages();
 
             ClickServer.Instance.Process();
@@ -157,6 +172,7 @@ public sealed class ApplicationServer
         CloseAllSecondaryWindows();
         mainWindow?.Dispose();
         mainWindow = null;
+        deltaTimeStopwatch.Stop();
         Log.Info("ApplicationCore Cleanup finished.");
     }
 

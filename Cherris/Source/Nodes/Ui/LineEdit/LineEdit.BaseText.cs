@@ -31,10 +31,6 @@ public partial class LineEdit
                 return;
             }
 
-            // BaseText components are drawn relative to the parent LineEdit's content area.
-            // GlobalPosition of parentLineEdit is its top-left.
-            // Text is drawn within the LineEdit's bounds, considering TextOrigin.
-
             Rect layoutRect = GetLayoutRect();
 
             parentLineEdit.DrawFormattedText(
@@ -48,20 +44,21 @@ public partial class LineEdit
 
         protected Rect GetLayoutRect()
         {
-            // TextOrigin defines the padding from the LineEdit's edges.
-            // Position of LineEdit is parentLineEdit.GlobalPosition - parentLineEdit.Origin
-            // For simplicity, assume Origin is Zero for LineEdit or handled by GlobalPosition.
-            // GlobalPosition for Node2D is its top-left.
-
-            Vector2 lineEditPos = parentLineEdit.GlobalPosition; // Top-left of the LineEdit
+            // This is the visual top-left of the LineEdit box itself
+            Vector2 lineEditVisualTopLeft = parentLineEdit.GlobalPosition - parentLineEdit.Origin;
             Vector2 lineEditSize = parentLineEdit.Size;
 
-            // Text area starts after TextOrigin.X from left, and TextOrigin.Y from top (if used).
-            // Typically TextOrigin.Y might be for vertical centering alignment, handled by VAlignment.Center.
-            float textRenderAreaX = lineEditPos.X + parentLineEdit.TextOrigin.X + TextOffset.X;
-            float textRenderAreaY = lineEditPos.Y + TextOffset.Y; // Assuming TextOrigin.Y is for padding from top or VAlignment handles it
-            float textRenderAreaWidth = lineEditSize.X - parentLineEdit.TextOrigin.X * 2; // Padding on both sides
-            float textRenderAreaHeight = lineEditSize.Y;
+            // Text area starts after TextOrigin.X from the *visual left* of LineEdit,
+            // and TextOrigin.Y from the *visual top* of LineEdit.
+            float textRenderAreaX = lineEditVisualTopLeft.X + parentLineEdit.TextOrigin.X + TextOffset.X;
+            // Corrected Y to be relative to the visual top of the LineEdit
+            float textRenderAreaY = lineEditVisualTopLeft.Y + parentLineEdit.TextOrigin.Y + TextOffset.Y;
+
+            // Width available for text
+            float textRenderAreaWidth = lineEditSize.X - parentLineEdit.TextOrigin.X * 2; // Horizontal padding on both sides
+            // Height available for text (full height of LineEdit minus vertical padding)
+            // Since TextOrigin.Y is 0 for LineEdit, this is currently lineEditSize.Y
+            float textRenderAreaHeight = lineEditSize.Y - parentLineEdit.TextOrigin.Y * 2;
 
             return new Rect(textRenderAreaX, textRenderAreaY, Math.Max(0, textRenderAreaWidth), Math.Max(0, textRenderAreaHeight));
         }
