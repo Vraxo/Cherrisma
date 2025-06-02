@@ -34,7 +34,7 @@ public abstract class Slider : Control
     public float MinValue { get; set; } = 0f;
     public float MaxValue { get; set; } = 1f;
     public Sound? MoveSound { get; set; }
-    public SliderStyle Theme { get; set; } = new();
+    public SliderStyle Style { get; set; } = new();
     public Vector2 GrabberSize { get; set; } = new(12, 24);
 
     protected bool grabberPressed;
@@ -59,15 +59,15 @@ public abstract class Slider : Control
         Focusable = true;
         Navigable = true;
 
-        Theme.Foreground.FillColor = DefaultTheme.Accent;
-        Theme.Foreground.Roundness = 0.2f;
-        Theme.Background.Roundness = 0.2f;
-        Theme.Grabber.Roundness = 0.5f;
-        Theme.Grabber.BorderLength = 1f;
-        Theme.Grabber.Normal.FillColor = DefaultTheme.NormalFill;
-        Theme.Grabber.Hover.FillColor = DefaultTheme.HoverFill;
-        Theme.Grabber.Pressed.FillColor = DefaultTheme.Accent;
-        Theme.Grabber.Focused.BorderColor = DefaultTheme.FocusBorder;
+        Style.Foreground.FillColor = DefaultTheme.Accent;
+        Style.Foreground.Roundness = 0.2f;
+        Style.Background.Roundness = 0.2f;
+        Style.Grabber.Roundness = 0.5f;
+        Style.Grabber.BorderLength = 1f;
+        Style.Grabber.Normal.FillColor = DefaultTheme.NormalFill;
+        Style.Grabber.Hover.FillColor = DefaultTheme.HoverFill;
+        Style.Grabber.Pressed.FillColor = DefaultTheme.Accent;
+        Style.Grabber.Focused.BorderColor = DefaultTheme.FocusBorder;
     }
 
     public override void Process()
@@ -121,7 +121,7 @@ public abstract class Slider : Control
     {
         try
         {
-            Theme = FileLoader.Load<SliderStyle>(themeFile);
+            Style = FileLoader.Load<SliderStyle>(themeFile);
         }
         catch (Exception ex)
         {
@@ -170,13 +170,13 @@ public abstract class Slider : Control
     private void DrawBackground(DrawingContext context)
     {
         var bounds = new Rect(trackPosition.X, trackPosition.Y, Size.X, Size.Y);
-        DrawStyledRectangle(context, bounds, Theme.Background);
+        DrawStyledRectangle(context, bounds, Style.Background);
     }
 
     private void DrawGrabber(DrawingContext context)
     {
         Vector2 grabberPos = CalculateGrabberPosition();
-        ButtonStyle currentGrabberStyle = Theme.Grabber.Current;
+        ButtonStyle currentGrabberStyle = Style.Grabber.Current;
 
         var bounds = new Rect(grabberPos.X, grabberPos.Y, GrabberSize.X, GrabberSize.Y);
         DrawStyledRectangle(context, bounds, currentGrabberStyle);

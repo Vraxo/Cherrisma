@@ -9,7 +9,7 @@ public sealed class PackedScene(string path)
 {
     private readonly string _path = path;
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .WithNamingConvention(PascalCaseNamingConvention.Instance) // Changed from CamelCase
         .Build();
 
     public T Instantiate<T>() where T : Node

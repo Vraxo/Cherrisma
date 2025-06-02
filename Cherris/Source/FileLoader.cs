@@ -14,11 +14,21 @@ public static class FileLoader
         object data = _deserializer.Deserialize<object>(yamlContent);
 
         T instance = new();
-        ProcessYamlData(instance, data, "");
+
+        // Deferred assignments are only relevant if the root instance is a Node.
+        // However, NodePropertySetter.SetNestedMember now expects the list,
+        // so we provide it, but it will only be used if rootInstance is Node.
+        List<(Node, string, object)>? deferredAssignments = null;
+        if (instance is Node)
+        {
+            deferredAssignments = new List<(Node, string, object)>();
+        }
+
+        ProcessYamlData(instance, data, "", deferredAssignments);
         return instance;
     }
 
-    private static void ProcessYamlData(object target, object yamlData, string currentPath)
+    private static void ProcessYamlData(object target, object yamlData, string currentPath, List<(Node, string, object)>? deferredNodeAssignments)
     {
         switch (yamlData)
         {
@@ -30,16 +40,17 @@ public static class FileLoader
                         ? key
                         : $"{currentPath}/{key}";
 
-                    ProcessYamlData(target, entry.Value, newPath);
+                    ProcessYamlData(target, entry.Value, newPath, deferredNodeAssignments);
                 }
                 break;
 
             case List<object> list:
-                NodePropertySetter.SetNestedMember(target, currentPath, list);
+                // For lists, we directly try to set the member. ValueConversionUtils will handle list conversion.
+                NodePropertySetter.SetNestedMember(target, currentPath, list, deferredNodeAssignments);
                 break;
 
-            default:
-                NodePropertySetter.SetNestedMember(target, currentPath, yamlData);
+            default: // Primitives, strings, enums, etc.
+                NodePropertySetter.SetNestedMember(target, currentPath, yamlData, deferredNodeAssignments);
                 break;
         }
     }

@@ -136,7 +136,7 @@ public class VSlider : Slider
 
         if (foregroundRect.Width > 0 && foregroundRect.Height > 0)
         {
-            DrawStyledRectangle(context, foregroundRect, Theme.Foreground);
+            DrawStyledRectangle(context, foregroundRect, Style.Foreground);
         }
     }
 
@@ -164,25 +164,25 @@ public class VSlider : Slider
     {
         if (Disabled)
         {
-            Theme.Grabber.Current = Theme.Grabber.Disabled;
+            Style.Grabber.Current = Style.Grabber.Disabled;
             return;
         }
 
         if (grabberPressed)
         {
-            Theme.Grabber.Current = Theme.Grabber.Pressed;
+            Style.Grabber.Current = Style.Grabber.Pressed;
         }
         else if (Focused)
         {
-            Theme.Grabber.Current = grabberHovered ? Theme.Grabber.Hover : Theme.Grabber.Focused;
+            Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
         }
         else if (grabberHovered)
         {
-            Theme.Grabber.Current = Theme.Grabber.Hover;
+            Style.Grabber.Current = Style.Grabber.Hover;
         }
         else
         {
-            Theme.Grabber.Current = Theme.Grabber.Normal;
+            Style.Grabber.Current = Style.Grabber.Normal;
         }
     }
 

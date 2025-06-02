@@ -1,4 +1,17 @@
 Node: MainScene::MainScene
 children:
-  - Node: HSLider::HSlider
-    Position: [250, 250]
+    - Node: HSlider::Slider
+      AnchorPreset: BottomCenter
+      Size: [300, 8]
+      RelativeWidth: 0.5
+      MarginBottom: 32
+      GrabberSize: [24, 24]
+      Style:
+        Foreground:
+          Roundness: 1
+        Background:
+          Roundness: 1
+        Grabber:
+          FillColor: [0, 0, 0, 0]
+          BorderColor: [0, 0, 0, 0]
+          Roundness: 1

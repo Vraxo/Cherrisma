@@ -67,21 +67,34 @@ public static class ValueConversionUtils
 
     private static object ConvertPrimitive(Type targetType, object value)
     {
-        string stringValue = value?.ToString()?.TrimQuotes() ?? "";
+        string stringValue = value?.ToString()?.TrimQuotes().Trim() ?? ""; // Added .Trim() here
 
         if (targetType.IsEnum)
         {
+            // Pre-parse diagnostic logging specifically for AnchorPreset
+            if (targetType.Name == "AnchorPreset") // Check against simple name first
+            {
+                string currentValidNames = string.Join(", ", Enum.GetNames(targetType));
+                Log.Info($"[ValueConversionUtils] Attempting to parse for enum '{targetType.FullName}' (from Assembly: '{targetType.Assembly.FullName}'): Value='{stringValue}', Available Enum Names: [{currentValidNames}]");
+            }
+
             try
             {
-                // if (targetType == typeof(SystemBackdropType)) // Assuming SystemBackdropType is defined elsewhere
-                // {
-                //     return Enum.Parse<SystemBackdropType>(stringValue, true);
-                // }
                 return Enum.Parse(targetType, stringValue, true);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex) // Specifically catch ArgumentException from Enum.Parse
             {
-                throw new InvalidOperationException($"Failed to parse enum '{targetType.Name}' from value '{stringValue}'.", ex);
+                string validNames = string.Join(", ", Enum.GetNames(targetType));
+                string assemblyName = targetType.Assembly.FullName ?? "Unknown Assembly";
+                Log.Error($"[ValueConversionUtils] ArgumentException during Enum.Parse. Target Enum: '{targetType.FullName}' (from Assembly: '{assemblyName}'), Value: '{stringValue}', Message: '{ex.Message}'. Valid names for this enum: [{validNames}]");
+                throw new InvalidOperationException($"Failed to parse enum '{targetType.FullName}' (from Assembly: '{assemblyName}') from value '{stringValue}'. Valid values are: [{validNames}]. Ensure no extra whitespace and correct casing (ignored).", ex);
+            }
+            catch (Exception ex) // Catch any other unexpected exceptions during enum parsing
+            {
+                string validNames = string.Join(", ", Enum.GetNames(targetType));
+                string assemblyName = targetType.Assembly.FullName ?? "Unknown Assembly";
+                Log.Error($"[ValueConversionUtils] Generic Exception during Enum.Parse. Target Enum: '{targetType.FullName}' (from Assembly: '{assemblyName}'), Value: '{stringValue}', Message: '{ex.Message}'. Valid names for this enum: [{validNames}]");
+                throw new InvalidOperationException($"An unexpected error occurred while parsing enum '{targetType.FullName}' (from Assembly: '{assemblyName}') from value '{stringValue}'. Valid values are: [{validNames}].", ex);
             }
         }
 
@@ -107,7 +120,7 @@ public static class ValueConversionUtils
                     return bool.Parse(stringValue);
 
                 case TypeCode.String:
-                    return stringValue;
+                    return stringValue; // Already trimmed and quotes handled
             }
         }
         catch (Exception ex)

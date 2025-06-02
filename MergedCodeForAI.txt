@@ -9,7 +9,10 @@ public class MainScene : Node
     {
         base.Process();
 
-        GetNode<HSlider>("HSlider").Position = GetWindowSizeV2() / 2;
+        // The HSlider's position will now be determined by its AnchorPreset and Margin
+        // properties, as defined in the Res/Main.yaml file.
+        // The line below is removed to prevent overriding the declarative layout.
+        // GetNode<HSlider>("Slider").Position = GetWindowSizeV2() / 2;
     }
 }
 </file>
@@ -31,8 +34,21 @@ public sealed class EntryPoint
 <file path="Res\Main.yaml">
 Node: MainScene::MainScene
 children:
-  - Node: HSLider::HSlider
-    Position: [250, 250]
+    - Node: HSlider::Slider
+      AnchorPreset: BottomCenter
+      Size: [300, 8]
+      RelativeWidth: 0.5
+      MarginBottom: 32
+      GrabberSize: [24, 24]
+      Style:
+        Foreground:
+          Roundness: 1
+        Background:
+          Roundness: 1
+        Grabber:
+          FillColor: [0, 0, 0, 0]
+          BorderColor: [0, 0, 0, 0]
+          Roundness: 1
 </file>
 
 <file path="Res\Cherris\Config.yaml">
@@ -52,21 +68,7 @@ VSync: false
 </file>
 
 <file path="Res\Main.yaml">
-Node: MainScene::MainScene
-children:
-    - Node: VideoPlayer::VideoPlayer
-      Position: [500, 500]
-      Scale: [0.25, 0.25]
-      FilePath: Res/Video.mp4
-      AutoPlay: true
 
-    - Node: Button::PlayOrPauseButton
-      Text: 'Play or Pause'
-      Position: [100, 100]
-      #Size: [32, 32]
-
-    - Node: HSlider::Slider
-      Position: [250, 250]
 </file>
 
 <file path="Source\BoxStyle.cs">
@@ -2343,89 +2345,173 @@ public class Node
 <file path="Source\Node2D.cs">
 namespace Cherris;
 
+public enum AnchorPreset
+{
+    None,
+    TopLeft, TopCenter, TopRight,
+    CenterLeft, Center, CenterRight,
+    BottomLeft, BottomCenter, BottomRight
+}
+
 public class Node2D : VisualItem
 {
     public Vector2 Position { get; set; } = Vector2.Zero;
     public virtual float Rotation { get; set; } = 0;
     public OriginPreset OriginPreset { get; set; } = OriginPreset.Center;
-    public bool InheritPosition { get; set; } = true;
-    public bool InheritOrigin { get; set; } = false;
     public bool InheritScale { get; set; } = true;
     public HAlignment HAlignment { get; set; } = HAlignment.Center;
     public VAlignment VAlignment { get; set; } = VAlignment.Center;
     public AnchorPreset AnchorPreset { get; set; } = AnchorPreset.None;
 
+    public float MarginLeft { get; set; } = 0f;
+    public float MarginTop { get; set; } = 0f;
+    public float MarginRight { get; set; } = 0f;
+    public float MarginBottom { get; set; } = 0f;
+
+    public float RelativeWidth { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
+    public float RelativeHeight { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit height.
+
     public Vector2 ScaledSize => Size * Scale;
+
+    // Backing field for explicit size, initialized with a default.
+    // This value is set if "Size: [x, y]" is in YAML or node.Size = new Vec2(x,y) is called.
+    private Vector2 _explicitSize = new(320, 320);
 
     public virtual Vector2 Size
     {
-        get;
-        set
+        get
         {
-            if (value == field)
+            Vector2 referenceSizeForRelative;
+
+            if (Parent is Node2D parentNode2D)
             {
-                return;
+                referenceSizeForRelative = parentNode2D.Size; // Parent's calculated size
+            }
+            else
+            {
+                referenceSizeForRelative = GetWindowSizeV2(); // Window size if no Node2D parent
             }
 
-            field = value;
-            SizeChanged?.Invoke(this, Size);
-        }
-    } = new(320, 320);
+            float finalWidth = _explicitSize.X;
+            // If RelativeWidth is set (e.g. 0.5 for 50%), calculate width based on reference.
+            if (RelativeWidth > 0f && RelativeWidth <= 1f)
+            {
+                finalWidth = referenceSizeForRelative.X * RelativeWidth;
+            }
 
+            float finalHeight = _explicitSize.Y;
+            // If RelativeHeight is set, calculate height based on reference.
+            if (RelativeHeight > 0f && RelativeHeight <= 1f)
+            {
+                finalHeight = referenceSizeForRelative.Y * RelativeHeight;
+            }
+
+            return new Vector2(finalWidth, finalHeight);
+        }
+        set // This setter updates the _explicitSize. Relative sizing remains active if configured.
+        {
+            if (_explicitSize != value)
+            {
+                _explicitSize = value;
+                // Invoke SizeChanged with the new *calculated* size, as the explicit base has changed.
+                SizeChanged?.Invoke(this, Size);
+            }
+        }
+    }
+
+    private Vector2 _scale = Vector2.One;
     public virtual Vector2 Scale
     {
         get
         {
             return InheritScale && Parent is Node2D node2DParent
                 ? node2DParent.Scale
-                : (field);
+                : _scale;
         }
-        set;
-    } = new(1, 1);
+        set => _scale = value;
+    }
 
     public virtual Vector2 GlobalPosition
     {
         get
         {
+            Vector2 parentTopLeft;
+            Vector2 parentSize;
+
             if (Parent is Node2D parentNode)
             {
-                Vector2 anchorOffset = AnchorPreset switch
-                {
-                    AnchorPreset.TopCenter => new Vector2(parentNode.Size.X * 0.5f, 0),
-                    AnchorPreset.TopLeft => Vector2.Zero, // Handle TopLeft case
-                    _ => Vector2.Zero
-                };
-                return InheritPosition
-                    ? parentNode.GlobalPosition + anchorOffset + Position
-                    : (field);
+                parentTopLeft = parentNode.GlobalPosition;
+                parentSize = parentNode.Size;
             }
             else
             {
-                return Position;
+                parentTopLeft = Vector2.Zero;
+                parentSize = GetWindowSizeV2();
             }
-        }
-        set
-        {
-            field = value;
-            if (Parent is not Node2D)
+
+            float myCalculatedTopLeftX;
+            float myCalculatedTopLeftY;
+
+            if (AnchorPreset == AnchorPreset.None)
             {
-                Position = value;
+                myCalculatedTopLeftX = parentTopLeft.X + Position.X;
+                myCalculatedTopLeftY = parentTopLeft.Y + Position.Y;
             }
+            else
+            {
+                switch (AnchorPreset)
+                {
+                    case AnchorPreset.TopLeft:
+                    case AnchorPreset.CenterLeft:
+                    case AnchorPreset.BottomLeft:
+                        myCalculatedTopLeftX = parentTopLeft.X + MarginLeft;
+                        break;
+                    case AnchorPreset.TopCenter:
+                    case AnchorPreset.Center:
+                    case AnchorPreset.BottomCenter:
+                        myCalculatedTopLeftX = parentTopLeft.X + (parentSize.X * 0.5f) - (Size.X * 0.5f) + MarginLeft;
+                        break;
+                    case AnchorPreset.TopRight:
+                    case AnchorPreset.CenterRight:
+                    case AnchorPreset.BottomRight:
+                    default:
+                        myCalculatedTopLeftX = parentTopLeft.X + parentSize.X - Size.X - MarginRight;
+                        break;
+                }
+
+                switch (AnchorPreset)
+                {
+                    case AnchorPreset.TopLeft:
+                    case AnchorPreset.TopCenter:
+                    case AnchorPreset.TopRight:
+                        myCalculatedTopLeftY = parentTopLeft.Y + MarginTop;
+                        break;
+                    case AnchorPreset.CenterLeft:
+                    case AnchorPreset.Center:
+                    case AnchorPreset.CenterRight:
+                        myCalculatedTopLeftY = parentTopLeft.Y + (parentSize.Y * 0.5f) - (Size.Y * 0.5f) + MarginTop;
+                        break;
+                    case AnchorPreset.BottomLeft:
+                    case AnchorPreset.BottomCenter:
+                    case AnchorPreset.BottomRight:
+                    default:
+                        myCalculatedTopLeftY = parentTopLeft.Y + parentSize.Y - Size.Y - MarginBottom;
+                        break;
+                }
+                myCalculatedTopLeftX += Position.X;
+                myCalculatedTopLeftY += Position.Y;
+            }
+
+            return new Vector2(myCalculatedTopLeftX, myCalculatedTopLeftY);
         }
     }
 
+    private Vector2 _offset = Vector2.Zero;
     public Vector2 Offset
     {
-        get
-        {
-            if (InheritOrigin && Parent is Node2D parentNode)
-            {
-                return parentNode.Offset;
-            }
-            return field;
-        }
-        set;
-    } = Vector2.Zero;
+        get => _offset;
+        set => _offset = value;
+    }
 
     public Vector2 Origin
     {
@@ -2433,7 +2519,7 @@ public class Node2D : VisualItem
         {
             float x = HAlignment switch
             {
-                HAlignment.Center => Size.X * Scale.X / 2,
+                HAlignment.Center => Size.X / 2f,
                 HAlignment.Left => 0,
                 HAlignment.Right => Size.X,
                 _ => 0
@@ -2442,8 +2528,8 @@ public class Node2D : VisualItem
             float y = VAlignment switch
             {
                 VAlignment.Top => 0,
-                VAlignment.Center => Size.Y * Scale.Y / 2,
-                VAlignment.Bottom => Size.Y * Scale.Y,
+                VAlignment.Center => Size.Y / 2f,
+                VAlignment.Bottom => Size.Y,
                 _ => 0
             };
 
@@ -2452,25 +2538,15 @@ public class Node2D : VisualItem
         }
     }
 
-    // Events
-
     public event EventHandler<Vector2>? SizeChanged;
-
-    // Methods
 
     public void LookAt(Vector2 targetPosition)
     {
-        Vector2 direction = targetPosition - GlobalPosition;
+        Vector2 originPoint = GlobalPosition + Origin;
+        Vector2 direction = targetPosition - originPoint;
         var angle = float.Atan2(direction.Y, direction.X) * 57.29578f;
         Rotation = angle;
     }
-}
-
-public enum AnchorPreset
-{
-    None,
-    TopCenter,
-    TopLeft // Added TopLeft preset
 }
 </file>
 
@@ -5659,7 +5735,7 @@ public sealed class PackedScene(string path)
 {
     private readonly string _path = path;
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .WithNamingConvention(PascalCaseNamingConvention.Instance) // Changed from CamelCase
         .Build();
 
     public T Instantiate<T>() where T : Node
@@ -6503,21 +6579,34 @@ public static class ValueConversionUtils
 
     private static object ConvertPrimitive(Type targetType, object value)
     {
-        string stringValue = value?.ToString()?.TrimQuotes() ?? "";
+        string stringValue = value?.ToString()?.TrimQuotes().Trim() ?? ""; // Added .Trim() here
 
         if (targetType.IsEnum)
         {
+            // Pre-parse diagnostic logging specifically for AnchorPreset
+            if (targetType.Name == "AnchorPreset") // Check against simple name first
+            {
+                string currentValidNames = string.Join(", ", Enum.GetNames(targetType));
+                Log.Info($"[ValueConversionUtils] Attempting to parse for enum '{targetType.FullName}' (from Assembly: '{targetType.Assembly.FullName}'): Value='{stringValue}', Available Enum Names: [{currentValidNames}]");
+            }
+
             try
             {
-                // if (targetType == typeof(SystemBackdropType)) // Assuming SystemBackdropType is defined elsewhere
-                // {
-                //     return Enum.Parse<SystemBackdropType>(stringValue, true);
-                // }
                 return Enum.Parse(targetType, stringValue, true);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex) // Specifically catch ArgumentException from Enum.Parse
             {
-                throw new InvalidOperationException($"Failed to parse enum '{targetType.Name}' from value '{stringValue}'.", ex);
+                string validNames = string.Join(", ", Enum.GetNames(targetType));
+                string assemblyName = targetType.Assembly.FullName ?? "Unknown Assembly";
+                Log.Error($"[ValueConversionUtils] ArgumentException during Enum.Parse. Target Enum: '{targetType.FullName}' (from Assembly: '{assemblyName}'), Value: '{stringValue}', Message: '{ex.Message}'. Valid names for this enum: [{validNames}]");
+                throw new InvalidOperationException($"Failed to parse enum '{targetType.FullName}' (from Assembly: '{assemblyName}') from value '{stringValue}'. Valid values are: [{validNames}]. Ensure no extra whitespace and correct casing (ignored).", ex);
+            }
+            catch (Exception ex) // Catch any other unexpected exceptions during enum parsing
+            {
+                string validNames = string.Join(", ", Enum.GetNames(targetType));
+                string assemblyName = targetType.Assembly.FullName ?? "Unknown Assembly";
+                Log.Error($"[ValueConversionUtils] Generic Exception during Enum.Parse. Target Enum: '{targetType.FullName}' (from Assembly: '{assemblyName}'), Value: '{stringValue}', Message: '{ex.Message}'. Valid names for this enum: [{validNames}]");
+                throw new InvalidOperationException($"An unexpected error occurred while parsing enum '{targetType.FullName}' (from Assembly: '{assemblyName}') from value '{stringValue}'. Valid values are: [{validNames}].", ex);
             }
         }
 
@@ -6543,7 +6632,7 @@ public static class ValueConversionUtils
                     return bool.Parse(stringValue);
 
                 case TypeCode.String:
-                    return stringValue;
+                    return stringValue; // Already trimmed and quotes handled
             }
         }
         catch (Exception ex)
@@ -7523,30 +7612,37 @@ public class HSlider : Slider
 
     protected override void CalculateTrackBounds()
     {
-        // trackPosition is the top-left corner of the drawable slider area
-        trackPosition = GlobalPosition - Origin;
+        // trackPosition is the top-left corner of the drawable slider area.
+        // Since GlobalPosition is now the top-left of the Node2D's bounding box,
+        // trackPosition can be set directly to GlobalPosition.
+        trackPosition = GlobalPosition;
+
+        // trackMin and trackMax are used for converting mouse position to slider value.
+        // They should represent the clickable/effective range of the track itself.
         trackMin = trackPosition.X;
-        trackMax = trackPosition.X + Size.X - GrabberSize.X; // Adjust trackMax to keep grabber fully within bounds
-                                                             // Or, allow grabber center to reach extents:
-        trackMax = trackPosition.X + Size.X; // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping
+        // If the grabber's center can align with the track ends:
+        trackMax = trackPosition.X + Size.X;
+        // If the grabber must stay fully within track visually (for mouse interaction):
+        // trackMax = trackPosition.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
+        // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping based on full Size.X range.
     }
 
     protected override void UpdateHoverStates()
     {
         Vector2 mousePos = GetLocalMousePosition();
 
-        // Track hover: considers the whole Size of the slider
+        // Track hover: considers the whole Size of the slider, relative to its top-left (trackPosition)
         trackHovered = mousePos.X >= trackPosition.X &&
                        mousePos.X <= trackPosition.X + Size.X &&
                        mousePos.Y >= trackPosition.Y &&
                        mousePos.Y <= trackPosition.Y + Size.Y;
 
         // Grabber hover: uses actual grabber bounds
-        Vector2 grabberCenterPos = CalculateGrabberPosition(); // This is top-left of grabber
-        grabberHovered = mousePos.X >= grabberCenterPos.X &&
-                         mousePos.X <= grabberCenterPos.X + GrabberSize.X &&
-                         mousePos.Y >= grabberCenterPos.Y &&
-                         mousePos.Y <= grabberCenterPos.Y + GrabberSize.Y;
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // This is top-left of grabber
+        grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
+                         mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
+                         mousePos.Y >= grabberTopLeftPos.Y &&
+                         mousePos.Y <= grabberTopLeftPos.Y + GrabberSize.Y;
     }
 
     protected override void HandleInput()
@@ -7560,14 +7656,18 @@ public class HSlider : Slider
     {
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
-            if (trackHovered) // If clicked anywhere on the track
+            // Mouse position is already local to the window.
+            // We need to check if it's within the slider's bounds (trackPosition to trackPosition + Size).
+            float localMouseX = GetLocalMousePosition().X;
+
+            if (trackHovered) // If clicked anywhere on the track (trackHovered already checks this)
             {
-                float clampedMouseX = Math.Clamp(GetLocalMousePosition().X, trackPosition.X, trackPosition.X + Size.X);
-                Value = ConvertPositionToValue(clampedMouseX);
+                // Clamp mouse X to be within the visual track extents for value calculation
+                float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
+                Value = ConvertPositionToValue(clampedMouseXOnTrack);
                 grabberPressed = true; // Start "dragging" immediately
                 PlaySound();
             }
-            // No separate 'else grabberPressed = grabberHovered;' because if trackHovered is true and click, we always start drag.
         }
         else if (Input.IsMouseButtonReleased(MouseButtonCode.Left))
         {
@@ -7585,9 +7685,10 @@ public class HSlider : Slider
             return;
         }
 
-        float clampedMouseX = Math.Clamp(GetLocalMousePosition().X, trackPosition.X, trackPosition.X + Size.X);
-        Value = ConvertPositionToValue(clampedMouseX);
-        // PlaySound(); // Optional: play sound on every drag movement, or only on initial click
+        float localMouseX = GetLocalMousePosition().X;
+        // Clamp mouse X to be within the visual track extents for value calculation
+        float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
+        Value = ConvertPositionToValue(clampedMouseXOnTrack);
     }
 
     private void HandleMouseWheel()
@@ -7597,20 +7698,22 @@ public class HSlider : Slider
         float wheelDelta = Input.GetMouseWheelMovement();
         if (wheelDelta == 0) return;
 
-        // Positive wheelDelta usually means scroll up/away, which for HSlider might mean increase value
         Value = ApplyStep(Value + (wheelDelta * Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1)));
         PlaySound();
     }
 
-    protected override float ConvertPositionToValue(float positionOnTrack)
+    protected override float ConvertPositionToValue(float positionOnTrackInLocalSpace)
     {
+        // positionOnTrackInLocalSpace is a local X coordinate (e.g., mouse.X)
+        // effectiveTrackMin is the track's starting X coordinate (trackPosition.X)
         float effectiveTrackMin = trackPosition.X;
         float effectiveTrackWidth = Size.X;
 
-        if (effectiveTrackWidth <= 0) return MinValue; // Avoid division by zero
+        if (effectiveTrackWidth <= 0) return MinValue;
 
-        float normalized = (positionOnTrack - effectiveTrackMin) / effectiveTrackWidth;
-        normalized = Math.Clamp(normalized, 0f, 1f); // Ensure it's strictly within 0-1
+        // Normalize the position relative to the track's start and width
+        float normalized = (positionOnTrackInLocalSpace - effectiveTrackMin) / effectiveTrackWidth;
+        normalized = Math.Clamp(normalized, 0f, 1f);
 
         if (Direction == HSliderDirection.RightToLeft)
         {
@@ -7618,7 +7721,7 @@ public class HSlider : Slider
         }
 
         float rawValue = MinValue + normalized * (MaxValue - MinValue);
-        return ApplyStep(rawValue); // ApplyStep will clamp and quantize
+        return ApplyStep(rawValue);
     }
 
     protected override void DrawForeground(DrawingContext context)
@@ -7630,10 +7733,11 @@ public class HSlider : Slider
         float foregroundWidth = Size.X * fillRatio;
         Rect foregroundRect;
 
+        // trackPosition is the top-left of the slider.
         if (Direction == HSliderDirection.RightToLeft)
         {
             foregroundRect = new Rect(
-                trackPosition.X + Size.X - foregroundWidth,
+                trackPosition.X + Size.X - foregroundWidth, // Starts from the right and extends left
                 trackPosition.Y,
                 foregroundWidth,
                 Size.Y
@@ -7642,7 +7746,7 @@ public class HSlider : Slider
         else // LeftToRight
         {
             foregroundRect = new Rect(
-                trackPosition.X,
+                trackPosition.X, // Starts from the left
                 trackPosition.Y,
                 foregroundWidth,
                 Size.Y
@@ -7651,12 +7755,13 @@ public class HSlider : Slider
 
         if (foregroundRect.Width > 0 && foregroundRect.Height > 0)
         {
-            DrawStyledRectangle(context, foregroundRect, Theme.Foreground);
+            DrawStyledRectangle(context, foregroundRect, Style.Foreground);
         }
     }
 
     protected override Vector2 CalculateGrabberPosition()
     {
+        // Returns the TOP-LEFT position of the grabber.
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -7666,15 +7771,17 @@ public class HSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        // Calculate center X of the grabber based on value, then offset by half grabber width
-        // Ensure grabber stays within the visual bounds of the track
+        // Calculate the CENTER X of where the grabber should be based on value.
         float grabberCenterX = trackPosition.X + normalizedValue * Size.X;
+
+        // Calculate the TOP-LEFT X of the grabber.
         float grabberLeftX = grabberCenterX - GrabberSize.X / 2f;
 
-        // Clamp grabber's left X to ensure it doesn't go outside track area
+        // Clamp grabber's top-left X to ensure it doesn't go visually outside the main track area
+        // The grabber should appear to slide along the track.
         grabberLeftX = Math.Clamp(grabberLeftX, trackPosition.X, trackPosition.X + Size.X - GrabberSize.X);
 
-        float yPos = trackPosition.Y + (Size.Y / 2f) - GrabberSize.Y / 2f; // Center grabber vertically
+        float yPos = trackPosition.Y + (Size.Y / 2f) - GrabberSize.Y / 2f; // Center grabber vertically within the track
         return new Vector2(grabberLeftX, yPos);
     }
 
@@ -7682,25 +7789,26 @@ public class HSlider : Slider
     {
         if (Disabled)
         {
-            Theme.Grabber.Current = Theme.Grabber.Disabled;
+            Style.Grabber.Current = Style.Grabber.Disabled;
             return;
         }
 
         if (grabberPressed)
         {
-            Theme.Grabber.Current = Theme.Grabber.Pressed;
+            Style.Grabber.Current = Style.Grabber.Pressed;
         }
         else if (Focused)
         {
-            Theme.Grabber.Current = grabberHovered ? Theme.Grabber.Hover : Theme.Grabber.Focused;
+            // If focused, use Hover style if also hovered, otherwise Focused style.
+            Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
         }
         else if (grabberHovered)
         {
-            Theme.Grabber.Current = Theme.Grabber.Hover;
+            Style.Grabber.Current = Style.Grabber.Hover;
         }
         else
         {
-            Theme.Grabber.Current = Theme.Grabber.Normal;
+            Style.Grabber.Current = Style.Grabber.Normal;
         }
     }
 
@@ -7768,7 +7876,7 @@ public abstract class Slider : Control
     public float MinValue { get; set; } = 0f;
     public float MaxValue { get; set; } = 1f;
     public Sound? MoveSound { get; set; }
-    public SliderStyle Theme { get; set; } = new();
+    public SliderStyle Style { get; set; } = new();
     public Vector2 GrabberSize { get; set; } = new(12, 24);
 
     protected bool grabberPressed;
@@ -7793,15 +7901,15 @@ public abstract class Slider : Control
         Focusable = true;
         Navigable = true;
 
-        Theme.Foreground.FillColor = DefaultTheme.Accent;
-        Theme.Foreground.Roundness = 0.2f;
-        Theme.Background.Roundness = 0.2f;
-        Theme.Grabber.Roundness = 0.5f;
-        Theme.Grabber.BorderLength = 1f;
-        Theme.Grabber.Normal.FillColor = DefaultTheme.NormalFill;
-        Theme.Grabber.Hover.FillColor = DefaultTheme.HoverFill;
-        Theme.Grabber.Pressed.FillColor = DefaultTheme.Accent;
-        Theme.Grabber.Focused.BorderColor = DefaultTheme.FocusBorder;
+        Style.Foreground.FillColor = DefaultTheme.Accent;
+        Style.Foreground.Roundness = 0.2f;
+        Style.Background.Roundness = 0.2f;
+        Style.Grabber.Roundness = 0.5f;
+        Style.Grabber.BorderLength = 1f;
+        Style.Grabber.Normal.FillColor = DefaultTheme.NormalFill;
+        Style.Grabber.Hover.FillColor = DefaultTheme.HoverFill;
+        Style.Grabber.Pressed.FillColor = DefaultTheme.Accent;
+        Style.Grabber.Focused.BorderColor = DefaultTheme.FocusBorder;
     }
 
     public override void Process()
@@ -7855,7 +7963,7 @@ public abstract class Slider : Control
     {
         try
         {
-            Theme = FileLoader.Load<SliderStyle>(themeFile);
+            Style = FileLoader.Load<SliderStyle>(themeFile);
         }
         catch (Exception ex)
         {
@@ -7904,13 +8012,13 @@ public abstract class Slider : Control
     private void DrawBackground(DrawingContext context)
     {
         var bounds = new Rect(trackPosition.X, trackPosition.Y, Size.X, Size.Y);
-        DrawStyledRectangle(context, bounds, Theme.Background);
+        DrawStyledRectangle(context, bounds, Style.Background);
     }
 
     private void DrawGrabber(DrawingContext context)
     {
         Vector2 grabberPos = CalculateGrabberPosition();
-        ButtonStyle currentGrabberStyle = Theme.Grabber.Current;
+        ButtonStyle currentGrabberStyle = Style.Grabber.Current;
 
         var bounds = new Rect(grabberPos.X, grabberPos.Y, GrabberSize.X, GrabberSize.Y);
         DrawStyledRectangle(context, bounds, currentGrabberStyle);
@@ -8086,7 +8194,7 @@ public class VSlider : Slider
 
         if (foregroundRect.Width > 0 && foregroundRect.Height > 0)
         {
-            DrawStyledRectangle(context, foregroundRect, Theme.Foreground);
+            DrawStyledRectangle(context, foregroundRect, Style.Foreground);
         }
     }
 
@@ -8114,25 +8222,25 @@ public class VSlider : Slider
     {
         if (Disabled)
         {
-            Theme.Grabber.Current = Theme.Grabber.Disabled;
+            Style.Grabber.Current = Style.Grabber.Disabled;
             return;
         }
 
         if (grabberPressed)
         {
-            Theme.Grabber.Current = Theme.Grabber.Pressed;
+            Style.Grabber.Current = Style.Grabber.Pressed;
         }
         else if (Focused)
         {
-            Theme.Grabber.Current = grabberHovered ? Theme.Grabber.Hover : Theme.Grabber.Focused;
+            Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
         }
         else if (grabberHovered)
         {
-            Theme.Grabber.Current = Theme.Grabber.Hover;
+            Style.Grabber.Current = Style.Grabber.Hover;
         }
         else
         {
-            Theme.Grabber.Current = Theme.Grabber.Normal;
+            Style.Grabber.Current = Style.Grabber.Normal;
         }
     }
 

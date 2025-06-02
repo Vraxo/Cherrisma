@@ -8,6 +8,9 @@ public class MainScene : Node
     {
         base.Process();
 
-        GetNode<HSlider>("HSlider").Position = GetWindowSizeV2() / 2;
+        // The HSlider's position will now be determined by its AnchorPreset and Margin
+        // properties, as defined in the Res/Main.yaml file.
+        // The line below is removed to prevent overriding the declarative layout.
+        // GetNode<HSlider>("Slider").Position = GetWindowSizeV2() / 2;
     }
 }

@@ -1,11 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
 <MainScene name="MainScene">
-	<HSlider name="HSlider">
-		<Position x="250" y="250" />
-		<AutoPlay>true</AutoPlay>
-	</HSlider>
-	<Button name="MyButton">
-		<Size x="100" y="30" />
-	</Button>
-	<HSlider name="mf" />
+    <HSlider name="Slider">
+        <AnchorPreset>BottomCenter</AnchorPreset>
+        <Size x="300" y="8" />
+        <RelativeWidth>0.5</RelativeWidth>
+        <MarginBottom>32</MarginBottom>
+        <GrabberSize x="24" y="24" />
+        <Style>
+            <Foreground>
+                <Roundness>1</Roundness>
+            </Foreground>
+            <Background>
+                <Roundness>1</Roundness>
+            </Background>
+            <Grabber>
+                <FillColor r="0" g="0" b="0" a="0" />
+                <BorderColor r="0" g="0" b="0" a="0" />
+                <Roundness>1</Roundness>
+            </Grabber>
+        </Style>
+    </HSlider>
 </MainScene>
