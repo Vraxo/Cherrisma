@@ -34,6 +34,8 @@ public sealed class EntryPoint
 <file path="Res\Main.yaml">
 Node: MainScene::MainScene
 children:
+    - Node: LineEdit::LineEdit
+      Position: [300, 300]
     - Node: HSlider::Slider
       AnchorPreset: BottomCenter
       Size: [300, 8]
@@ -69,6 +71,24 @@ VSync: false
 
 <file path="Res\Main.yaml">
 
+</file>
+
+<file path="Source\AnchorPreset.cs">
+namespace Cherris;
+
+public enum AnchorPreset
+{
+    None,
+    TopLeft,
+    TopCenter,
+    TopRight,
+    CenterLeft,
+    Center,
+    CenterRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight
+}
 </file>
 
 <file path="Source\BoxStyle.cs">
@@ -451,6 +471,8 @@ public abstract class Direct2DAppWindow : Win32Window
     private Dictionary<string, IDWriteTextFormat> textFormatCache = new();
 
     public float CurrentFps { get; private set; } = 0.0f;
+    public IDWriteFactory? DWriteFactory => dwriteFactory;
+
 
     public Direct2DAppWindow(string title = "Vortice DirectUI Base Window", int width = 800, int height = 600)
         : base(title, width, height)
@@ -899,11 +921,21 @@ public static class FileLoader
         object data = _deserializer.Deserialize<object>(yamlContent);
 
         T instance = new();
-        ProcessYamlData(instance, data, "");
+
+        // Deferred assignments are only relevant if the root instance is a Node.
+        // However, NodePropertySetter.SetNestedMember now expects the list,
+        // so we provide it, but it will only be used if rootInstance is Node.
+        List<(Node, string, object)>? deferredAssignments = null;
+        if (instance is Node)
+        {
+            deferredAssignments = new List<(Node, string, object)>();
+        }
+
+        ProcessYamlData(instance, data, "", deferredAssignments);
         return instance;
     }
 
-    private static void ProcessYamlData(object target, object yamlData, string currentPath)
+    private static void ProcessYamlData(object target, object yamlData, string currentPath, List<(Node, string, object)>? deferredNodeAssignments)
     {
         switch (yamlData)
         {
@@ -915,16 +947,17 @@ public static class FileLoader
                         ? key
                         : $"{currentPath}/{key}";
 
-                    ProcessYamlData(target, entry.Value, newPath);
+                    ProcessYamlData(target, entry.Value, newPath, deferredNodeAssignments);
                 }
                 break;
 
             case List<object> list:
-                NodePropertySetter.SetNestedMember(target, currentPath, list);
+                // For lists, we directly try to set the member. ValueConversionUtils will handle list conversion.
+                NodePropertySetter.SetNestedMember(target, currentPath, list, deferredNodeAssignments);
                 break;
 
-            default:
-                NodePropertySetter.SetNestedMember(target, currentPath, yamlData);
+            default: // Primitives, strings, enums, etc.
+                NodePropertySetter.SetNestedMember(target, currentPath, yamlData, deferredNodeAssignments);
                 break;
         }
     }
@@ -1003,6 +1036,9 @@ public static class Input
     private static readonly Dictionary<string, KeyCode> _positiveYActions = [];
     private static readonly Dictionary<string, KeyCode> _negativeYActions = [];
 
+    // Placeholder for character input queue (to be populated by MainAppWindow from WM_CHAR)
+    private static readonly Queue<char> _typedCharQueue = new();
+
 
     public static void Update()
     {
@@ -1019,6 +1055,7 @@ public static class Input
         }
 
         _mouseWheelMovement = 0f;
+        // _typedCharQueue is not cleared here; it's consumed.
     }
 
     internal static void UpdateMouseButton(MouseButtonCode button, bool isDown)
@@ -1053,6 +1090,27 @@ public static class Input
     internal static void UpdateMouseWheel(float delta)
     {
         _mouseWheelMovement = delta;
+    }
+
+    // Method to be called by MainAppWindow when a WM_CHAR is processed
+    internal static void AddTypedCharacter(char c)
+    {
+        // Optionally filter non-printable characters here, though WM_CHAR usually provides printable ones.
+        // Backspace, Enter, Tab etc. are typically handled via WM_KEYDOWN.
+        if (!char.IsControl(c) || c == '\t') // Allow tab as a character, filter other control chars
+        {
+            _typedCharQueue.Enqueue(c);
+        }
+    }
+
+    // Method for UI elements like LineEdit to consume typed characters
+    public static char? ConsumeNextTypedChar()
+    {
+        if (_typedCharQueue.Count > 0)
+        {
+            return _typedCharQueue.Dequeue();
+        }
+        return null;
     }
 
 
@@ -1435,40 +1493,44 @@ public class MainAppWindow : Direct2DAppWindow
 
             case NativeMethods.WM_LBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Left, true);
-                return IntPtr.Zero; // Typically, framework handles focus; if specific behavior needed, adjust.
+                // Allow base class to handle focus and other default behaviors.
+                // If we return IntPtr.Zero, some default behaviors like setting focus on click might be bypassed.
+                // Let base class handle it unless we specifically want to override.
+                break;
             case NativeMethods.WM_LBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Left, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_RBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Right, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_RBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Right, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_MBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_MBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_XBUTTONDOWN:
                 int xButton1 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton1 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, true);
                 if (xButton1 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_XBUTTONUP:
                 int xButton2 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton2 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, false);
                 if (xButton2 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_MOUSEWHEEL:
                 short wheelDelta = NativeMethods.GET_WHEEL_DELTA_WPARAM(wParam);
                 Input.UpdateMouseWheel((float)wheelDelta / NativeMethods.WHEEL_DELTA);
-                return IntPtr.Zero;
+                // Let base handle if it needs to (e.g. for scrolling non-client areas or accessibility)
+                break;
 
             case NativeMethods.WM_KEYDOWN:
             case NativeMethods.WM_SYSKEYDOWN:
@@ -1477,7 +1539,7 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeDown, true);
                 }
-                // Allow base.HandleMessage for default key processing (e.g., Escape key for close)
+                // Allow base.HandleMessage for default key processing (e.g., Escape key for close, Tab navigation)
                 return base.HandleMessage(hWnd, msg, wParam, lParam);
 
             case NativeMethods.WM_KEYUP:
@@ -1487,7 +1549,15 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeUp, false);
                 }
-                return IntPtr.Zero; // Often, KeyUp doesn't need further default processing if KeyDown handled it
+                // Often, KeyUp doesn't need further default processing if KeyDown handled it.
+                // However, if base class might use it (e.g. for accessibility), let it pass.
+                // Returning IntPtr.Zero might be too aggressive.
+                break;
+
+            case NativeMethods.WM_CHAR:
+                char typedChar = (char)wParam;
+                Input.AddTypedCharacter(typedChar);
+                return IntPtr.Zero; // Character processed
         }
 
         return base.HandleMessage(hWnd, msg, wParam, lParam);
@@ -1696,6 +1766,7 @@ public static class NativeMethods
     public const int WM_KEYUP = 0x0101;
     public const int WM_SYSKEYDOWN = 0x0104;
     public const int WM_SYSKEYUP = 0x0105;
+    public const int WM_CHAR = 0x0102; // Added for character input
     public const int WM_LBUTTONDOWN = 0x0201;
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_RBUTTONDOWN = 0x0204;
@@ -2345,37 +2416,25 @@ public class Node
 <file path="Source\Node2D.cs">
 namespace Cherris;
 
-public enum AnchorPreset
-{
-    None,
-    TopLeft, TopCenter, TopRight,
-    CenterLeft, Center, CenterRight,
-    BottomLeft, BottomCenter, BottomRight
-}
-
 public class Node2D : VisualItem
 {
-    public Vector2 Position { get; set; } = Vector2.Zero;
-    public virtual float Rotation { get; set; } = 0;
+    public Vector2 Position          { get; set; } = Vector2.Zero;
+    public virtual float Rotation    { get; set; } = 0;
     public OriginPreset OriginPreset { get; set; } = OriginPreset.Center;
-    public bool InheritScale { get; set; } = true;
-    public HAlignment HAlignment { get; set; } = HAlignment.Center;
-    public VAlignment VAlignment { get; set; } = VAlignment.Center;
+    public bool InheritScale         { get; set; } = true;
+    public HAlignment HAlignment     { get; set; } = HAlignment.Center;
+    public VAlignment VAlignment     { get; set; } = VAlignment.Center;
     public AnchorPreset AnchorPreset { get; set; } = AnchorPreset.None;
 
-    public float MarginLeft { get; set; } = 0f;
-    public float MarginTop { get; set; } = 0f;
-    public float MarginRight { get; set; } = 0f;
+    public float MarginLeft   { get; set; } = 0f;
+    public float MarginTop    { get; set; } = 0f;
+    public float MarginRight  { get; set; } = 0f;
     public float MarginBottom { get; set; } = 0f;
 
-    public float RelativeWidth { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
+    public float RelativeWidth  { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
     public float RelativeHeight { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit height.
 
     public Vector2 ScaledSize => Size * Scale;
-
-    // Backing field for explicit size, initialized with a default.
-    // This value is set if "Size: [x, y]" is in YAML or node.Size = new Vec2(x,y) is called.
-    private Vector2 _explicitSize = new(320, 320);
 
     public virtual Vector2 Size
     {
@@ -2410,26 +2469,28 @@ public class Node2D : VisualItem
         }
         set // This setter updates the _explicitSize. Relative sizing remains active if configured.
         {
-            if (_explicitSize != value)
+            if (_explicitSize == value)
             {
-                _explicitSize = value;
-                // Invoke SizeChanged with the new *calculated* size, as the explicit base has changed.
-                SizeChanged?.Invoke(this, Size);
+                return;
             }
+
+            _explicitSize = value;
+            // Invoke SizeChanged with the new *calculated* size, as the explicit base has changed.
+            SizeChanged?.Invoke(this, Size);
         }
     }
 
-    private Vector2 _scale = Vector2.One;
     public virtual Vector2 Scale
     {
         get
         {
             return InheritScale && Parent is Node2D node2DParent
                 ? node2DParent.Scale
-                : _scale;
+                : field;
         }
-        set => _scale = value;
-    }
+
+        set;
+    } = new(1, 1);
 
     public virtual Vector2 GlobalPosition
     {
@@ -2459,59 +2520,29 @@ public class Node2D : VisualItem
             }
             else
             {
-                switch (AnchorPreset)
+                myCalculatedTopLeftX = AnchorPreset switch
                 {
-                    case AnchorPreset.TopLeft:
-                    case AnchorPreset.CenterLeft:
-                    case AnchorPreset.BottomLeft:
-                        myCalculatedTopLeftX = parentTopLeft.X + MarginLeft;
-                        break;
-                    case AnchorPreset.TopCenter:
-                    case AnchorPreset.Center:
-                    case AnchorPreset.BottomCenter:
-                        myCalculatedTopLeftX = parentTopLeft.X + (parentSize.X * 0.5f) - (Size.X * 0.5f) + MarginLeft;
-                        break;
-                    case AnchorPreset.TopRight:
-                    case AnchorPreset.CenterRight:
-                    case AnchorPreset.BottomRight:
-                    default:
-                        myCalculatedTopLeftX = parentTopLeft.X + parentSize.X - Size.X - MarginRight;
-                        break;
-                }
+                    AnchorPreset.TopLeft or AnchorPreset.CenterLeft or AnchorPreset.BottomLeft => parentTopLeft.X + MarginLeft,
+                    AnchorPreset.TopCenter or AnchorPreset.Center or AnchorPreset.BottomCenter => parentTopLeft.X + (parentSize.X * 0.5f) - (Size.X * 0.5f) + MarginLeft,
+                    _ => parentTopLeft.X + parentSize.X - Size.X - MarginRight,
+                };
 
-                switch (AnchorPreset)
+                myCalculatedTopLeftY = AnchorPreset switch
                 {
-                    case AnchorPreset.TopLeft:
-                    case AnchorPreset.TopCenter:
-                    case AnchorPreset.TopRight:
-                        myCalculatedTopLeftY = parentTopLeft.Y + MarginTop;
-                        break;
-                    case AnchorPreset.CenterLeft:
-                    case AnchorPreset.Center:
-                    case AnchorPreset.CenterRight:
-                        myCalculatedTopLeftY = parentTopLeft.Y + (parentSize.Y * 0.5f) - (Size.Y * 0.5f) + MarginTop;
-                        break;
-                    case AnchorPreset.BottomLeft:
-                    case AnchorPreset.BottomCenter:
-                    case AnchorPreset.BottomRight:
-                    default:
-                        myCalculatedTopLeftY = parentTopLeft.Y + parentSize.Y - Size.Y - MarginBottom;
-                        break;
-                }
+                    AnchorPreset.TopLeft or AnchorPreset.TopCenter or AnchorPreset.TopRight => parentTopLeft.Y + MarginTop,
+                    AnchorPreset.CenterLeft or AnchorPreset.Center or AnchorPreset.CenterRight => parentTopLeft.Y + (parentSize.Y * 0.5f) - (Size.Y * 0.5f) + MarginTop,
+                    _ => parentTopLeft.Y + parentSize.Y - Size.Y - MarginBottom,
+                };
+
                 myCalculatedTopLeftX += Position.X;
                 myCalculatedTopLeftY += Position.Y;
             }
 
-            return new Vector2(myCalculatedTopLeftX, myCalculatedTopLeftY);
+            return new(myCalculatedTopLeftX, myCalculatedTopLeftY);
         }
     }
 
-    private Vector2 _offset = Vector2.Zero;
-    public Vector2 Offset
-    {
-        get => _offset;
-        set => _offset = value;
-    }
+    public Vector2 Offset { get; set;}
 
     public Vector2 Origin
     {
@@ -2538,7 +2569,13 @@ public class Node2D : VisualItem
         }
     }
 
+    private Vector2 _explicitSize = new(320, 320);
+
+    // Events
+
     public event EventHandler<Vector2>? SizeChanged;
+
+    // API
 
     public void LookAt(Vector2 targetPosition)
     {
@@ -5638,6 +5675,8 @@ public class Texture
 </file>
 
 <file path="Source\Scene\NodePropertySetter.cs">
+using System.Reflection;
+
 namespace Cherris;
 
 public static class NodePropertySetter
@@ -5657,46 +5696,89 @@ public static class NodePropertySetter
         }
     }
 
-    public static void SetNestedMember(object target, string memberPath, object value, List<(Node, string, object)>? deferredNodeAssignments = null)
+    public static void SetNestedMember(object rootInstance, string fullMemberPath, object value, List<(Node, string, object)>? deferredNodeAssignments = null)
     {
-        string[] pathParts = memberPath.Split('/');
-        object currentObject = target;
+        string[] pathParts = fullMemberPath.Split('/');
+        object currentObject = rootInstance; // Start from the root instance
 
         for (var i = 0; i < pathParts.Length; i++)
         {
-            var memberInfo = ReflectionUtils.GetMemberInfo(currentObject.GetType(), pathParts[i]);
+            var memberName = pathParts[i];
+            var memberInfo = ReflectionUtils.GetMemberInfo(currentObject.GetType(), memberName);
             bool isFinalSegment = i == pathParts.Length - 1;
 
             if (isFinalSegment)
             {
-                HandleFinalSegment(target, memberPath, currentObject, memberInfo, value, deferredNodeAssignments);
-            }
-            else
-            {
-                currentObject = GetOrCreateIntermediateObject(currentObject, memberInfo);
-            }
-        }
-    }
+                // We are at the final part of the path. 'currentObject' is the direct parent of the member to be set.
+                // 'memberInfo' is the member itself. 'value' is the value from YAML.
 
-    private static void HandleFinalSegment(object rootTarget, string memberPath, object currentObject, System.Reflection.MemberInfo memberInfo, object value, List<(Node, string, object)>? deferredAssignments)
-    {
-        var memberType = ReflectionUtils.GetMemberType(memberInfo);
+                Type memberType = ReflectionUtils.GetMemberType(memberInfo);
 
-        if (ShouldDeferAssignment(memberType, value))
-        {
-            if (rootTarget is Node nodeTarget)
-            {
-                deferredAssignments?.Add((nodeTarget, memberPath, value));
+                // If the YAML value is a dictionary, and the target member is a complex object type
+                if (value is Dictionary<object, object> dictValue && IsComplexObjectType(memberType))
+                {
+                    // Get the existing instance of this member from its parent ('currentObject').
+                    object? existingMemberInstance = ReflectionUtils.GetMemberValue(currentObject, memberInfo);
+                    if (existingMemberInstance == null)
+                    {
+                        // If the property was null (e.g., not initialized in constructor), create and assign it.
+                        existingMemberInstance = Activator.CreateInstance(memberType) ?? throw new InvalidOperationException($"Failed to create instance of {memberType.Name}");
+                        ReflectionUtils.SetMemberValue(currentObject, memberInfo, existingMemberInstance);
+                    }
+
+                    // Now, iterate through the YAML dictionary ('dictValue') and set properties on 'existingMemberInstance'.
+                    // For each key-value pair in 'dictValue', make a recursive call to SetNestedMember.
+                    // The 'rootInstance' remains the same (for potential deeper deferrals).
+                    // The 'fullMemberPath' for the recursive call is extended with the current sub-key.
+                    foreach (KeyValuePair<object, object> entry in dictValue)
+                    {
+                        string subKey = entry.Key.ToString()!;
+                        object subValue = entry.Value;
+                        // Construct the full path for this sub-property relative to the rootInstance
+                        string subPropertyFullPath = fullMemberPath + "/" + subKey;
+
+                        // Recursive call to set the sub-property.
+                        SetNestedMember(rootInstance, subPropertyFullPath, subValue, deferredNodeAssignments);
+                    }
+                }
+                else if (ShouldDeferAssignment(memberType, value))
+                {
+                    if (rootInstance is Node nodeForDeferral)
+                    {
+                        deferredNodeAssignments?.Add((nodeForDeferral, fullMemberPath, value));
+                    }
+                    else
+                    {
+                        // This case means rootInstance was not a Node, but we are trying to defer.
+                        // This can happen if SetNestedMember is called for something like Configuration loading.
+                        // Deferral is only relevant for Nodes.
+                        if (deferredNodeAssignments != null) // Only log if deferral was expected
+                        {
+                            Log.Warning($"Cannot defer assignment for non-Node root target: {rootInstance.GetType().Name} for path {fullMemberPath}. This may be normal if loading non-Node configurations.");
+                        }
+                        // Fallback to direct setting if not a Node context for deferral
+                        var convertedNonDeferredValue = ValueConversionUtils.ConvertValue(memberType, value);
+                        ReflectionUtils.SetMemberValue(currentObject, memberInfo, convertedNonDeferredValue);
+                    }
+                }
+                else
+                {
+                    // Primitive, list, enum, or Node path (string) to be converted directly
+                    var convertedValue = ValueConversionUtils.ConvertValue(memberType, value);
+                    ReflectionUtils.SetMemberValue(currentObject, memberInfo, convertedValue);
+                }
+                return; // Handled the final segment
             }
-            else
+            else // Not the final segment, navigate deeper
             {
-                Log.Error($"Cannot defer assignment for non-Node root target type: {rootTarget.GetType().Name}");
+                object? nextObject = ReflectionUtils.GetMemberValue(currentObject, memberInfo);
+                if (nextObject == null)
+                {
+                    nextObject = ReflectionUtils.CreateMemberInstance(memberInfo);
+                    ReflectionUtils.SetMemberValue(currentObject, memberInfo, nextObject);
+                }
+                currentObject = nextObject;
             }
-        }
-        else
-        {
-            var convertedValue = ValueConversionUtils.ConvertValue(memberType, value);
-            ReflectionUtils.SetMemberValue(currentObject, memberInfo, convertedValue);
         }
     }
 
@@ -5705,20 +5787,35 @@ public static class NodePropertySetter
         return memberType.IsSubclassOf(typeof(Node)) && value is string;
     }
 
-    private static object GetOrCreateIntermediateObject(object currentObject, System.Reflection.MemberInfo memberInfo)
+    private static bool IsComplexObjectType(Type type)
     {
-        object? existingValue = ReflectionUtils.GetMemberValue(currentObject, memberInfo);
+        // Types that ValueConversionUtils.ConvertValue handles from non-dictionary sources (string, list, primitive)
+        if (type.IsEnum || type == typeof(string) || type.IsPrimitive || type == typeof(decimal))
+            return false;
 
-        if (existingValue != null)
-        {
-            return existingValue;
-        }
+        // Node paths are handled by ShouldDeferAssignment or direct string conversion if not deferred
+        if (type.IsSubclassOf(typeof(Node)))
+            return false;
 
-        object newInstance = ReflectionUtils.CreateMemberInstance(memberInfo);
+        // Resource types loaded from string paths
+        if (type == typeof(AudioStream) || type == typeof(Sound) || type == typeof(Animation) || type == typeof(Texture) || type == typeof(Font))
+            return false;
 
-        ReflectionUtils.SetMemberValue(currentObject, memberInfo, newInstance);
+        // Types like Vector2, Color, List<T> are converted from YAML lists by ValueConversionUtils
+        // If YAML provides a dictionary for these, this method will return true, and they will be populated recursively.
+        // This is generally fine, e.g. MyVector: { X:1, Y:2 }
+        if (type == typeof(Vector2) || type == typeof(Color)) return false; // if YAML is a list
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>)) return false; // if YAML is a list
 
-        return newInstance;
+        // If it's a class (and not Node/Resource) or a non-primitive, non-enum struct,
+        // and the YAML provides a dictionary, we want to populate it recursively.
+        if (type.IsClass) return true;
+
+        // For structs (ValueType) that are not primitive, enum, decimal, Vector2, Color
+        if (type.IsValueType && !type.IsEnum && !type.IsPrimitive && type != typeof(decimal) && type != typeof(Vector2) && type != typeof(Color))
+            return true;
+
+        return false; // Default to not complex if not explicitly class or user-defined struct
     }
 }
 </file>
@@ -7067,19 +7164,19 @@ public class Button : Control
 
     public string Text
     {
-        get;
+        get => displayedText; // Return displayedText which is updated by setter
 
         set
         {
-            if (field == value)
+            if (displayedText == value) // Use displayedText for comparison
             {
                 return;
             }
 
-            field = value;
-            displayedText = value;
+            displayedText = value; // Update displayedText
+            // The original 'field' is no longer needed if displayedText is used directly.
         }
-    } = "";
+    }
 
     public event Action? LeftClicked;
     public event Action? RightClicked;
@@ -7239,7 +7336,7 @@ public class Button : Control
             HoverSound?.Play(AudioBus);
             wasHovered = true;
         }
-        else if (wasHovered)
+        else if (wasHovered && !isMouseOver) // check !isMouseOver here
         {
             wasHovered = false;
             MouseExited?.Invoke();
@@ -7293,11 +7390,12 @@ public class Button : Control
             return;
         }
 
-        DrawBackground(context);
-        DrawText(context);
+        DrawButtonBackground(context);
+        DrawIcon(context); // Icon drawing logic moved here from DrawText for better layering
+        DrawButtonText(context);
     }
 
-    private void DrawBackground(DrawingContext context)
+    protected virtual void DrawButtonBackground(DrawingContext context)
     {
         Vector2 position = GlobalPosition - Origin;
         Vector2 size = ScaledSize;
@@ -7306,7 +7404,7 @@ public class Button : Control
         DrawStyledRectangle(context, bounds, Styles.Current);
     }
 
-    private void DrawIcon(DrawingContext context)
+    private void DrawIcon(DrawingContext context) // Kept private as it's Button-specific for now
     {
         if (Icon is null || context.RenderTarget is null)
         {
@@ -7314,25 +7412,49 @@ public class Button : Control
         }
 
         Log.Warning("DrawIcon is not implemented.");
+        // Placeholder for icon drawing logic
+        // Example:
+        // Vector2 iconPosition = CalculateIconPosition(); // Based on text, alignment, IconMargin
+        // context.RenderTarget.DrawBitmap(....);
     }
 
-    private void DrawText(DrawingContext context)
+    protected virtual void DrawButtonText(DrawingContext context)
     {
-        if (Styles.Current is null) return;
+        if (Styles.Current is null || string.IsNullOrEmpty(displayedText)) // Check if displayedText is empty
+        {
+            return;
+        }
 
         Vector2 position = GlobalPosition - Origin;
         Vector2 size = ScaledSize;
 
+        // Adjust text layout rect if icon is present
+        float textStartX = position.X + TextMargin.X + TextOffset.X;
+        float textAvailableWidth = Math.Max(0, size.X - TextMargin.X * 2);
+
+        if (Icon != null)
+        {
+            // This is a simplified adjustment. Real layout needs icon size.
+            // Assuming icon is on the left.
+            // float iconTotalWidth = Icon.Size.X + IconMargin;
+            // textStartX += iconTotalWidth;
+            // textAvailableWidth -= iconTotalWidth;
+            Log.Warning("Button.DrawButtonText icon adjustment not fully implemented.");
+        }
+
+
         var textLayoutRect = new Rect(
-            position.X + TextMargin.X + TextOffset.X,
+            textStartX,
             position.Y + TextMargin.Y + TextOffset.Y,
-            Math.Max(0, size.X - TextMargin.X * 2),
+            textAvailableWidth,
             Math.Max(0, size.Y - TextMargin.Y * 2)
         );
 
+        // ClipDisplayedText(); // Call this before drawing if AutoWidth is not fitting text
+
         DrawFormattedText(
             context,
-            displayedText,
+            displayedText, // Use the Button's own displayedText
             textLayoutRect,
             Styles.Current,
             TextHAlignment,
@@ -7354,13 +7476,16 @@ public class Button : Control
     {
         if (!ClipText || string.IsNullOrEmpty(Text) || Styles?.Current is null)
         {
-            displayedText = Text;
+            // If not clipping, displayedText should be the full Text.
+            // This assignment might be redundant if Text setter already updates displayedText.
+            // displayedText = Text; // This was 'this.Text', ensure it refers to Button's Text
             return;
         }
 
         Log.Warning("ClipDisplayedText requires DirectWrite implementation.");
 
-        displayedText = Text;
+        // Fallback: ensure displayedText is based on Button's Text property.
+        // displayedText = Text; // Ensure this refers to Button's Text.
     }
 
     private string GetTextClippedWithEllipsis(string input)
@@ -7597,6 +7722,1071 @@ public sealed class TextureCache
             $"Res/Temporary/{Path.GetFileNameWithoutExtension(path)}.png";
 
         return pngPath;
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\CharacterSet.cs">
+namespace Cherris;
+
+public static class CharacterSet
+{
+    public static readonly List<char> Numbers = new(new[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' });
+    public static readonly List<char> Mathematics = new(new[] { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', '*', '/', '(', ')', '.' });
+    // Note: original had 'x' and '÷'. Standard multiply is '*' and divide is '/'. Adjusted for common keyboard input.
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\LineEdit.BaseText.cs">
+using Vortice.Mathematics;
+
+namespace Cherris;
+
+public partial class LineEdit
+{
+    private abstract class BaseText : VisualItem
+    {
+        protected LineEdit parentLineEdit;
+        private Vector2 _textOffset = Vector2.Zero; // Local offset within LineEdit
+
+        public BaseText(LineEdit parent)
+        {
+            parentLineEdit = parent;
+            // Ensure these components are not processed by SceneTree independently for drawing
+            // unless explicitly added as children and made visible.
+            // LineEdit will call their Draw methods.
+            Visible = false;
+        }
+
+        public Vector2 TextOffset
+        {
+            get => _textOffset;
+            set => _textOffset = value;
+        }
+
+        public override void Draw(DrawingContext context)
+        {
+            if (!parentLineEdit.Visible || ShouldSkipDrawing() || string.IsNullOrEmpty(GetTextToDisplay()))
+            {
+                return;
+            }
+
+            // BaseText components are drawn relative to the parent LineEdit's content area.
+            // GlobalPosition of parentLineEdit is its top-left.
+            // Text is drawn within the LineEdit's bounds, considering TextOrigin.
+
+            Rect layoutRect = GetLayoutRect();
+
+            parentLineEdit.DrawFormattedText(
+                context,
+                GetTextToDisplay(),
+                layoutRect,
+                parentLineEdit.Styles.Current, // Text color and font from ButtonStyle
+                HAlignment.Left,    // Text within LineEdit is typically left-aligned
+                VAlignment.Center); // And vertically centered
+        }
+
+        protected Rect GetLayoutRect()
+        {
+            // TextOrigin defines the padding from the LineEdit's edges.
+            // Position of LineEdit is parentLineEdit.GlobalPosition - parentLineEdit.Origin
+            // For simplicity, assume Origin is Zero for LineEdit or handled by GlobalPosition.
+            // GlobalPosition for Node2D is its top-left.
+
+            Vector2 lineEditPos = parentLineEdit.GlobalPosition; // Top-left of the LineEdit
+            Vector2 lineEditSize = parentLineEdit.Size;
+
+            // Text area starts after TextOrigin.X from left, and TextOrigin.Y from top (if used).
+            // Typically TextOrigin.Y might be for vertical centering alignment, handled by VAlignment.Center.
+            float textRenderAreaX = lineEditPos.X + parentLineEdit.TextOrigin.X + TextOffset.X;
+            float textRenderAreaY = lineEditPos.Y + TextOffset.Y; // Assuming TextOrigin.Y is for padding from top or VAlignment handles it
+            float textRenderAreaWidth = lineEditSize.X - parentLineEdit.TextOrigin.X * 2; // Padding on both sides
+            float textRenderAreaHeight = lineEditSize.Y;
+
+            return new Rect(textRenderAreaX, textRenderAreaY, Math.Max(0, textRenderAreaWidth), Math.Max(0, textRenderAreaHeight));
+        }
+
+        protected abstract string GetTextToDisplay();
+        protected abstract bool ShouldSkipDrawing();
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\LineEdit.Caret.cs">
+using System.Globalization; // For CultureInfo if needed for measurements
+using Vortice.DirectWrite;
+using Vortice.Mathematics;
+
+namespace Cherris;
+
+public partial class LineEdit
+{
+    protected class Caret : VisualItem
+    {
+        public float MaxTime { get; set; } = 0.5f;
+        private const byte MinAlphaByte = 0;
+        private const byte MaxAlphaByte = 255;
+        private float _timer = 0;
+        private float _alpha = 1.0f; // Use float for Color4 alpha
+        private LineEdit _parentLineEdit;
+
+        private float _arrowKeyTimer = 0f;
+        private const float ArrowKeyDelay = 0.5f;
+        private const float ArrowKeySpeed = 0.05f;
+        private bool _movingRight = false; // To track continuous movement direction
+
+        private int _caretDisplayPositionX; // Position relative to the start of visible text
+        public int CaretDisplayPositionX
+        {
+            get => _caretDisplayPositionX;
+            set
+            {
+                var maxVisibleChars = Math.Max(0, Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex));
+                _caretDisplayPositionX = Math.Clamp(value, 0, maxVisibleChars);
+                _alpha = 1.0f; // Reset blink
+                _timer = 0f;   // Reset blink timer
+            }
+        }
+
+        public Caret(LineEdit parent)
+        {
+            _parentLineEdit = parent;
+            Visible = false; // Drawn by LineEdit explicitly
+        }
+
+        public void UpdateLogic() // Renamed from Update to avoid confusion with Node.Process
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable) return;
+
+            HandleKeyboardInput();
+            HandleMouseInput();
+            UpdateAlpha();
+        }
+
+        public override void Draw(DrawingContext context)
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable || !Visible || _alpha <= 0.01f)
+            {
+                return;
+            }
+
+            Rect layoutRect = GetCaretLayoutRect(context);
+            if (layoutRect.Width <= 0 || layoutRect.Height <= 0) return;
+
+            ButtonStyle caretStyle = new ButtonStyle
+            {
+                FontName = _parentLineEdit.Styles.Current.FontName,
+                FontSize = _parentLineEdit.Styles.Current.FontSize,
+                FontWeight = _parentLineEdit.Styles.Current.FontWeight,
+                FontStyle = _parentLineEdit.Styles.Current.FontStyle,
+                FontStretch = _parentLineEdit.Styles.Current.FontStretch,
+                FontColor = new Color4(_parentLineEdit.Styles.Current.FontColor.R, _parentLineEdit.Styles.Current.FontColor.G, _parentLineEdit.Styles.Current.FontColor.B, _alpha),
+                WordWrapping = WordWrapping.NoWrap
+            };
+
+            _parentLineEdit.DrawFormattedText(
+                context,
+                "|",
+                layoutRect,
+                caretStyle,
+                HAlignment.Left,
+                VAlignment.Center);
+        }
+
+        private void HandleKeyboardInput()
+        {
+            bool rightPressed = Input.IsKeyPressed(KeyCode.RightArrow);
+            bool leftPressed = Input.IsKeyPressed(KeyCode.LeftArrow);
+
+            if (rightPressed || leftPressed)
+            {
+                _movingRight = rightPressed;
+                _arrowKeyTimer = 0f;
+                MoveCaret(_movingRight ? 1 : -1);
+            }
+            else if (Input.IsKeyDown(KeyCode.RightArrow) || Input.IsKeyDown(KeyCode.LeftArrow))
+            {
+                // Update direction if key state changes during hold
+                if (Input.IsKeyDown(KeyCode.RightArrow)) _movingRight = true;
+                else if (Input.IsKeyDown(KeyCode.LeftArrow)) _movingRight = false;
+
+                _arrowKeyTimer += Time.Delta;
+                if (_arrowKeyTimer >= ArrowKeyDelay)
+                {
+                    // Check if it's time for a repeat based on ArrowKeySpeed
+                    // This is a simplified way to handle repeat interval
+                    if ((_arrowKeyTimer - ArrowKeyDelay) % ArrowKeySpeed < Time.Delta) // Ensures one move per interval window
+                    {
+                        MoveCaret(_movingRight ? 1 : -1);
+                    }
+                }
+            }
+            else // No arrow keys down
+            {
+                _arrowKeyTimer = 0f;
+            }
+        }
+
+        private void HandleMouseInput()
+        {
+            if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
+            {
+                Vector2 localMousePos = _parentLineEdit.GetLocalMousePosition(); // Mouse pos relative to LineEdit's window
+
+                // Check if click is within LineEdit's bounds
+                Rect lineEditBounds = new Rect(
+                    _parentLineEdit.GlobalPosition.X, _parentLineEdit.GlobalPosition.Y,
+                    _parentLineEdit.Size.X, _parentLineEdit.Size.Y);
+
+                if (lineEditBounds.Contains(localMousePos.X, localMousePos.Y))
+                {
+                    MoveCaretToMousePosition(localMousePos);
+                }
+            }
+        }
+
+
+        private void MoveCaret(int direction)
+        {
+            // This moves the logical caret position (_parentLineEdit.CaretLogicalPosition)
+            // And then updates display position and start index.
+
+            int newLogicalPos = _parentLineEdit.CaretLogicalPosition + direction;
+            _parentLineEdit.CaretLogicalPosition = Math.Clamp(newLogicalPos, 0, _parentLineEdit.Text.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+        public void MoveCaretToMousePosition(Vector2 localMousePos) // localMousePos is relative to owning window
+        {
+            if (_parentLineEdit.Text.Length == 0)
+            {
+                _parentLineEdit.CaretLogicalPosition = 0;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            var owningWindow = _parentLineEdit.GetOwningWindow() as Direct2DAppWindow;
+            if (owningWindow == null || owningWindow.DWriteFactory == null) return; // Cannot measure text
+            IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
+
+
+            // Mouse X relative to the start of the text rendering area within LineEdit
+            float mouseXInTextRenderArea = localMousePos.X - (_parentLineEdit.GlobalPosition.X + _parentLineEdit.TextOrigin.X);
+
+            string visibleText = _parentLineEdit.Text.Substring(
+                _parentLineEdit.TextStartIndex,
+                Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
+            );
+
+            if (string.IsNullOrEmpty(visibleText))
+            {
+                // If visible text is empty but there's actual text (e.g. all scrolled off)
+                // or if text is genuinely empty.
+                _parentLineEdit.CaretLogicalPosition = (mouseXInTextRenderArea < 0 && _parentLineEdit.TextStartIndex > 0) ? _parentLineEdit.TextStartIndex : _parentLineEdit.TextStartIndex;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            IDWriteTextFormat? textFormat = owningWindow.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+            if (textFormat == null) return;
+
+            using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                visibleText,
+                textFormat,
+                _parentLineEdit.Size.X, // MaxWidth can be the LineEdit's width
+                _parentLineEdit.Size.Y  // MaxHeight
+            );
+
+            textLayout.WordWrapping = WordWrapping.NoWrap;
+
+            textLayout.HitTestPoint(mouseXInTextRenderArea, 0, out var isTrailingHit, out var isInside, out var metrics);
+
+            // metrics.textPosition is the index within the *visibleText* string.
+            int newCaretIndexInVisibleText = (int)metrics.TextPosition;
+            if (isTrailingHit && newCaretIndexInVisibleText < visibleText.Length)
+            {
+                // If clicked after the character, usually means caret goes after it.
+                // For the last char, HitTestTextPosition might give length, trailing means after that.
+                // If it's a leading click on char N, position is N.
+                // If it's a trailing click on char N, position is N+1.
+                // The DWrite behavior for HitTestPoint gives the index of the character *before* the click.
+                // If it's a trailing hit, it means the click was closer to the end of that character.
+                // So, if trailing and not the last char, move to next char's start.
+                // newCaretIndexInVisibleText = (int)metrics.TextPosition + (isTrailingHit ? 1 : 0);
+            }
+            // Let's refine: if trailing, it means the point is closer to the character *after* metrics.TextPosition
+            // So, the caret should be at metrics.TextPosition + 1
+            if (isTrailingHit) newCaretIndexInVisibleText = (int)metrics.TextPosition + (int)metrics.Length;
+
+
+            _parentLineEdit.CaretLogicalPosition = _parentLineEdit.TextStartIndex + Math.Clamp(newCaretIndexInVisibleText, 0, visibleText.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+
+        private Rect GetCaretLayoutRect(DrawingContext context)
+        {
+            Vector2 lineEditContentStartPos = _parentLineEdit.GlobalPosition + _parentLineEdit.TextOrigin;
+            float caretXOffset = 0;
+
+            if (CaretDisplayPositionX > 0 && _parentLineEdit.Text.Length > 0)
+            {
+                // Measure the width of the text up to the caret's display position
+                string textBeforeCaret = _parentLineEdit.Text.Substring(
+                    _parentLineEdit.TextStartIndex,
+                    Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
+                );
+
+                if (!string.IsNullOrEmpty(textBeforeCaret))
+                {
+                    var dwriteFactory = context.DWriteFactory;
+                    var owningWindow = context.OwnerWindow;
+                    IDWriteTextFormat? textFormat = owningWindow?.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+
+                    if (textFormat != null)
+                    {
+                        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+                        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                            textBeforeCaret,
+                            textFormat,
+                            float.MaxValue, // No wrapping for measurement
+                            _parentLineEdit.Size.Y);
+
+                        caretXOffset = textLayout.Metrics.Width;
+                    }
+                }
+            }
+
+            // Estimate caret width (e.g., 1-2 pixels or measure "|")
+            float caretWidth = _parentLineEdit.MeasureSingleCharWidth(context, "|", _parentLineEdit.Styles.Current);
+            if (caretWidth <= 0) caretWidth = 2; // Fallback if measurement fails
+
+            return new Rect(
+                lineEditContentStartPos.X + caretXOffset - caretWidth / 2f, // Center caret roughly
+                lineEditContentStartPos.Y,
+                caretWidth,
+                _parentLineEdit.Size.Y // Full height of LineEdit
+            );
+        }
+
+
+        private void UpdateAlpha()
+        {
+            _timer += Time.Delta;
+            if (_timer > MaxTime)
+            {
+                _alpha = (_alpha == 1.0f) ? 0.0f : 1.0f;
+                _timer = 0;
+            }
+        }
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\LineEdit.cs">
+using Cherris;
+using System.Globalization;
+using Vortice.DirectWrite;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Vortice.DirectWrite;
+
+namespace Cherris;
+
+public partial class LineEdit : Button
+{
+    #region [ - - - Properties & Fields - - - ]
+
+    public static readonly Vector2 DefaultLineEditSize = new(200, 28); // Adjusted default size
+
+    private string _text = "";
+    public new string Text // Hides Button.Text
+    {
+        get => _text;
+        set
+        {
+            if (_text == value) return;
+
+            string oldText = _text;
+            _text = value ?? ""; // Ensure not null
+
+            if (_text.Length > MaxCharacters)
+            {
+                _text = _text.Substring(0, MaxCharacters);
+            }
+
+            UpdateCaretDisplayPositionAndStartIndex(); // Update caret based on new text
+            TextChanged?.Invoke(this, _text);
+            if (oldText.Length == 0 && _text.Length > 0)
+            {
+                FirstCharacterEntered?.Invoke(this, EventArgs.Empty);
+            }
+            if (oldText.Length > 0 && _text.Length == 0)
+            {
+                Cleared?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    public string PlaceholderText { get; set; } = "";
+    public Vector2 TextOrigin { get; set; } = new(6, 0); // Padding from left for text start
+    public int MaxCharacters { get; set; } = int.MaxValue;
+    // MinCharacters not directly enforced during typing, usually for validation on confirm
+    public List<char> ValidCharacters { get; set; } = []; // If empty, all chars allowed
+
+    public bool Selected
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            _caret.Visible = field && Editable; // Caret visible only if LineEdit is selected and editable
+            if (!field) _caret.CaretDisplayPositionX = 0; // Reset caret display pos when deselected
+        }
+    } = false;
+
+    public bool Editable { get; set; } = true;
+    public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
+    public bool Secret { get; set; } = false;
+    public char SecretCharacter { get; set; } = '*';
+
+    // TextStartIndex: The index of the first character in `_text` that is visible.
+    // This is used for horizontal scrolling.
+    public int TextStartIndex { get; internal set; } = 0;
+
+    // CaretLogicalPosition: The caret's position as an index within the full `_text` string.
+    internal int CaretLogicalPosition { get; set; } = 0;
+
+
+    public event EventHandler? FirstCharacterEntered;
+    public event EventHandler? Cleared;
+    public event EventHandler<string>? TextChanged;
+    public event EventHandler<string>? Confirmed;
+
+    protected Cherris.LineEdit.Caret _caret;
+    private readonly Cherris.LineEdit.TextDisplayer _textDisplayer;
+    private readonly Cherris.LineEdit.PlaceholderTextDisplayer _placeholderTextDisplayer;
+
+    private const float BackspaceDelay = 0.5f;
+    private const float BackspaceSpeed = 0.05f; // Time between repeats
+    private const float UndoDelay = 0.5f;
+    private const float UndoSpeed = 0.05f;
+
+    private float _backspaceTimer = 0f;
+    private bool _backspaceHeld = false;
+    private float _undoTimer = 0f;
+    private bool _undoHeld = false;
+    private bool _backspaceCtrlHeld = false;
+
+    private Stack<LineEditState> _undoStack = new();
+    private Stack<LineEditState> _redoStack = new();
+    private const int HistoryLimit = 50;
+
+    private char? _pendingCharInput = null; // For character input
+
+    #endregion
+
+    public LineEdit()
+    {
+        // 1. Initialize core members that other parts of the constructor or property setters might depend on.
+        _caret = new Cherris.LineEdit.Caret(this);
+        _textDisplayer = new Cherris.LineEdit.TextDisplayer(this);
+        _placeholderTextDisplayer = new Cherris.LineEdit.PlaceholderTextDisplayer(this);
+
+        // 2. Set default values for properties. Order might matter if setters have side effects.
+        Visible = true; // Explicitly set visible, though default for VisualItem is true.
+        Size = DefaultLineEditSize; // Use specific default for LineEdit
+        TextHAlignment = HAlignment.Left; // Text in button usually centered, LineEdit is left
+        TextVAlignment = VAlignment.Center;
+
+        // 3. Set the problematic test text. Now _caret will be initialized.
+        Text = "Type here...";
+
+        // 4. Configure styles.
+        // LineEdit inherits Styles from Button (Control).
+        // We can customize its default appearance here or expect it from YAML.
+        Styles.Normal.BorderLength = 1;
+        Styles.Focused.BorderLength = 1; // Keep border for focus
+        Styles.Focused.BorderColor = DefaultTheme.FocusBorder; // Standard focus color
+
+        // 5. Subscribe to events.
+        // Subscribe to events from Control/Button
+        FocusChanged += OnFocusChangedHandler;
+        LeftClicked += OnLeftClickedHandler; // From Button
+        ClickedOutside += OnClickedOutsideHandler; // From Control
+        LayerChanged += OnLayerChangedHandler; // From VisualItem
+        SizeChanged += OnSizeChangedHandler; // From Node2D
+    }
+
+    public override void Process()
+    {
+        base.Process(); // Handles Control/Button related processing (focus, hover, style updates)
+
+        CaptureCharInput(); // Poll for character input
+
+        if (Editable && Selected)
+        {
+            HandleCharacterInput();
+            HandleBackspace();
+            HandleDelete();
+            HandleHomeEndKeys();
+            HandleClipboardPaste();
+            HandleUndoRedo();
+            ConfirmOnEnter();
+        }
+        _caret.UpdateLogic(); // Update caret logic (input, blinking)
+        // Text displayers don't need a process, their GetTextToDisplay is called in Draw
+        UpdateSizeToFitTextIfEnabled();
+    }
+
+    public override void Draw(DrawingContext context)
+    {
+        base.Draw(context); // Draws the button background/border
+
+        // Placeholder and TextDisplayers draw text *inside* the button area
+        _placeholderTextDisplayer.Draw(context);
+        _textDisplayer.Draw(context);
+
+        if (Selected && Editable)
+        {
+            _caret.Visible = true; // Ensure caret is marked visible before its draw call
+            _caret.Draw(context);
+        }
+        else
+        {
+            _caret.Visible = false;
+        }
+    }
+
+    private void CaptureCharInput()
+    {
+        // This is a placeholder. Proper implementation requires WM_CHAR handling in MainAppWindow
+        // and a way for Input class to provide these characters.
+        // For now, we'll simulate it for a few keys if they are pressed.
+        if (_pendingCharInput == null) // Process one char per frame for simplicity
+        {
+            _pendingCharInput = Input.ConsumeNextTypedChar(); // ASSUMED METHOD on Input class
+        }
+    }
+
+    protected override void OnEnterPressed() // Called by Button base class if Enter is pressed while focused
+    {
+        if (Editable)
+        {
+            ConfirmAction();
+        }
+        // Don't call base.OnEnterPressed if we handle enter for confirmation,
+        // as button's default might be to invoke LeftClicked.
+    }
+
+    private void OnFocusChangedHandler(Control control) // From Control
+    {
+        Selected = control.Focused;
+    }
+
+    private void OnLeftClickedHandler() // From Button
+    {
+        if (Editable)
+        {
+            Selected = true;
+            // Caret position is handled by Caret's mouse input logic
+        }
+    }
+
+    private void OnClickedOutsideHandler(Control control) // From Control
+    {
+        if (Selected)
+        {
+            Selected = false;
+            // Optionally, confirm text here if needed: ConfirmAction();
+        }
+    }
+
+    private void OnLayerChangedHandler(VisualItem sender, int layer)
+    {
+        // If sub-components need layer awareness, set their Layer property.
+        // _caret.Layer = layer + 1; // Example, if caret draws independently.
+        // For now, LineEdit controls their drawing order.
+    }
+
+    private void OnSizeChangedHandler(object? sender, Vector2 newSize)
+    {
+        // When size changes, re-evaluate visible text range and caret
+        TextStartIndex = 0; // Could be smarter, but reset is safe
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private void UpdateSizeToFitTextIfEnabled()
+    {
+        if (!ExpandWidthToText || !Visible) return;
+
+        var owningWindow = GetOwningWindow() as Direct2DAppWindow;
+        if (owningWindow == null || owningWindow.DWriteFactory == null) return;
+        IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
+
+
+        string textToMeasure = string.IsNullOrEmpty(Text) ? PlaceholderText : Text;
+        if (string.IsNullOrEmpty(textToMeasure))
+        {
+            Size = new Vector2(TextOrigin.X * 2 + 20, Size.Y); // Minimum size
+            return;
+        }
+
+        float measuredWidth = MeasureTextWidth(dwriteFactory, textToMeasure, Styles.Current);
+        Size = new Vector2(measuredWidth + TextOrigin.X * 2, Size.Y);
+    }
+
+    internal float MeasureTextWidth(IDWriteFactory dwriteFactory, string text, ButtonStyle style)
+    {
+        if (string.IsNullOrEmpty(text)) return 0f;
+
+        using IDWriteTextFormat textFormat = dwriteFactory.CreateTextFormat(
+            style.FontName, null, style.FontWeight, style.FontStyle, style.FontStretch, style.FontSize, CultureInfo.CurrentCulture.Name);
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(text, textFormat, float.MaxValue, float.MaxValue);
+        return textLayout.Metrics.WidthIncludingTrailingWhitespace;
+    }
+
+    internal float MeasureSingleCharWidth(DrawingContext context, string character, ButtonStyle style)
+    {
+        if (string.IsNullOrEmpty(character)) return 0f;
+        IDWriteFactory dwriteFactory = context.DWriteFactory;
+        if (dwriteFactory == null) return 0f; // Cannot measure
+
+        using IDWriteTextFormat textFormat = dwriteFactory.CreateTextFormat(
+            style.FontName, null, style.FontWeight, style.FontStyle, style.FontStretch, style.FontSize, CultureInfo.CurrentCulture.Name);
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(character, textFormat, float.MaxValue, float.MaxValue);
+        return textLayout.Metrics.Width;
+    }
+
+    public void Insert(string textToInsert)
+    {
+        if (!Editable || string.IsNullOrEmpty(textToInsert)) return;
+
+        PushStateForUndo();
+        foreach (char c in textToInsert)
+        {
+            InsertCharacterLogic(c);
+        }
+    }
+
+    private void HandleCharacterInput()
+    {
+        if (_pendingCharInput.HasValue)
+        {
+            char typedChar = _pendingCharInput.Value;
+            _pendingCharInput = null; // Consume it
+
+            if (Text.Length < MaxCharacters)
+            {
+                if (ValidCharacters.Count == 0 || ValidCharacters.Contains(typedChar))
+                {
+                    PushStateForUndo();
+                    InsertCharacterLogic(typedChar);
+                }
+            }
+        }
+    }
+
+    private void InsertCharacterLogic(char c)
+    {
+        if (Text.Length >= MaxCharacters) return;
+
+        Text = Text.Insert(CaretLogicalPosition, c.ToString());
+        CaretLogicalPosition++;
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private void HandleBackspace()
+    {
+        bool ctrlHeld = Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl);
+
+        if (Input.IsKeyPressed(KeyCode.Backspace))
+        {
+            _backspaceHeld = true;
+            _backspaceTimer = 0f;
+            _backspaceCtrlHeld = ctrlHeld; // Capture ctrl state at initial press
+            PerformBackspaceAction(_backspaceCtrlHeld);
+        }
+        else if (Input.IsKeyDown(KeyCode.Backspace) && _backspaceHeld)
+        {
+            _backspaceTimer += Time.Delta;
+            if (_backspaceTimer >= BackspaceDelay)
+            {
+                // Simplified repeat logic
+                if ((_backspaceTimer - BackspaceDelay) % BackspaceSpeed < Time.Delta)
+                {
+                    PerformBackspaceAction(_backspaceCtrlHeld);
+                }
+            }
+        }
+        else if (Input.IsKeyReleased(KeyCode.Backspace))
+        {
+            _backspaceHeld = false;
+            _backspaceTimer = 0f;
+        }
+    }
+
+    private void PerformBackspaceAction(bool isCtrlHeld)
+    {
+        if (Text.Length == 0 || CaretLogicalPosition == 0) return;
+
+        PushStateForUndo();
+        if (isCtrlHeld) // Delete previous word
+        {
+            int originalCaretPos = CaretLogicalPosition;
+            int wordStart = FindPreviousWordStart(Text, originalCaretPos);
+            Text = Text.Remove(wordStart, originalCaretPos - wordStart);
+            CaretLogicalPosition = wordStart;
+        }
+        else // Delete single character
+        {
+            Text = Text.Remove(CaretLogicalPosition - 1, 1);
+            CaretLogicalPosition--;
+        }
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private int FindPreviousWordStart(string text, int currentPos)
+    {
+        if (currentPos == 0) return 0;
+        int pos = currentPos - 1;
+        // Skip trailing spaces before the word
+        while (pos > 0 && char.IsWhiteSpace(text[pos])) pos--;
+        // Find start of the word (non-space)
+        while (pos > 0 && !char.IsWhiteSpace(text[pos - 1])) pos--;
+        return pos;
+    }
+
+    private void HandleDelete()
+    {
+        if (Input.IsKeyPressed(KeyCode.Delete))
+        {
+            if (CaretLogicalPosition < Text.Length)
+            {
+                PushStateForUndo();
+                Text = Text.Remove(CaretLogicalPosition, 1);
+                // CaretLogicalPosition doesn't change, but display might if text scrolls
+                UpdateCaretDisplayPositionAndStartIndex();
+            }
+        }
+    }
+
+    private void HandleHomeEndKeys()
+    {
+        if (Input.IsKeyPressed(KeyCode.Home))
+        {
+            CaretLogicalPosition = 0;
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+        else if (Input.IsKeyPressed(KeyCode.End))
+        {
+            CaretLogicalPosition = Text.Length;
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    private void HandleClipboardPaste()
+    {
+        if ((Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl)) && Input.IsKeyPressed(KeyCode.V))
+        {
+            try
+            {
+                // TODO: Enable System.Windows.Forms in the project file (.csproj) to use Clipboard.
+                // For .NET Core/5+, add: <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+                // For .NET Framework, add a reference to System.Windows.Forms.dll.
+                // string clipboardText = Clipboard.GetText(); 
+                string clipboardText = ""; // Placeholder
+                Log.Warning("Clipboard.GetText() is currently disabled. Project setup required for System.Windows.Forms.");
+
+                if (!string.IsNullOrEmpty(clipboardText))
+                {
+                    // Sanitize clipboard text (e.g., remove newlines)
+                    clipboardText = clipboardText.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                    Insert(clipboardText);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error pasting from clipboard: {ex.Message}");
+            }
+        }
+    }
+
+    private void HandleUndoRedo()
+    {
+        bool ctrlHeld = Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl);
+
+        if (ctrlHeld && Input.IsKeyPressed(KeyCode.Z))
+        {
+            _undoHeld = true;
+            _undoTimer = 0f;
+            Undo();
+        }
+        else if (ctrlHeld && Input.IsKeyDown(KeyCode.Z) && _undoHeld)
+        {
+            _undoTimer += Time.Delta;
+            if (_undoTimer >= UndoDelay)
+            {
+                if ((_undoTimer - UndoDelay) % UndoSpeed < Time.Delta)
+                {
+                    Undo();
+                }
+            }
+        }
+        else if (Input.IsKeyReleased(KeyCode.Z))
+        {
+            _undoHeld = false;
+            _undoTimer = 0f;
+        }
+
+
+        if (ctrlHeld && Input.IsKeyPressed(KeyCode.Y))
+        {
+            Redo();
+        }
+    }
+
+    private void ConfirmOnEnter()
+    {
+        if (Input.IsKeyPressed(KeyCode.Enter))
+        {
+            ConfirmAction();
+        }
+    }
+
+    private void ConfirmAction()
+    {
+        Selected = false; // Deselect on confirm
+        Confirmed?.Invoke(this, Text);
+    }
+
+    internal int GetDisplayableCharactersCount()
+    {
+        if (Size.X <= TextOrigin.X * 2) return 0;
+
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
+        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null) return (int)(availableWidth / 8); // Rough fallback
+        IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
+
+        // Measure an average character like 'm' or 'W'
+        float avgCharWidth = MeasureTextWidth(dwriteFactory, "m", Styles.Current);
+        if (avgCharWidth <= 0) avgCharWidth = 8; // Fallback
+
+        return (int)(availableWidth / avgCharWidth);
+    }
+
+    internal void UpdateCaretDisplayPositionAndStartIndex()
+    {
+        int displayableChars = GetDisplayableCharactersCount();
+        if (displayableChars <= 0)
+        {
+            TextStartIndex = CaretLogicalPosition; // Effectively hide all text
+            _caret.CaretDisplayPositionX = 0;
+            return;
+        }
+
+        // If caret is to the left of the visible window
+        if (CaretLogicalPosition < TextStartIndex)
+        {
+            TextStartIndex = CaretLogicalPosition;
+        }
+        // If caret is to the right of the visible window
+        else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
+        {
+            TextStartIndex = CaretLogicalPosition - displayableChars + 1; // +1 to ensure caret is visible
+            if (TextStartIndex + displayableChars > Text.Length) // Don't scroll past end of text
+            {
+                TextStartIndex = Math.Max(0, Text.Length - displayableChars);
+            }
+        }
+        TextStartIndex = Math.Max(0, TextStartIndex); // Ensure TextStartIndex is not negative
+
+        // Update caret's display position (relative to the start of visible text)
+        _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars);
+    }
+
+
+    private void PushStateForUndo()
+    {
+        if (_undoStack.Count > 0 && _undoStack.Peek().Text == _text && _undoStack.Peek().CaretPosition == CaretLogicalPosition)
+        {
+            return; // Don't push identical state
+        }
+        if (_undoStack.Count >= HistoryLimit)
+        {
+            // A more efficient way would be a circular buffer or removing from the bottom of a List.
+            // For simplicity with Stack, this is not ideal but works.
+            var tempList = _undoStack.ToList();
+            tempList.RemoveAt(0); // Remove oldest
+            _undoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+        }
+        _undoStack.Push(new LineEditState(_text, CaretLogicalPosition, TextStartIndex));
+        _redoStack.Clear();
+    }
+
+    public void Undo()
+    {
+        if (_undoStack.Count > 0)
+        {
+            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            _redoStack.Push(currentState);
+            if (_redoStack.Count > HistoryLimit)
+            {
+                var tempList = _redoStack.ToList();
+                tempList.RemoveAt(0);
+                _redoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+            }
+
+            LineEditState previousState = _undoStack.Pop();
+            _text = previousState.Text; // Assign directly to bypass Text setter's undo push
+            CaretLogicalPosition = previousState.CaretPosition;
+            TextStartIndex = previousState.TextStartIndex;
+
+            TextChanged?.Invoke(this, _text); // Manually invoke event
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    public void Redo()
+    {
+        if (_redoStack.Count > 0)
+        {
+            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            _undoStack.Push(currentState);
+            if (_undoStack.Count > HistoryLimit)
+            {
+                var tempList = _undoStack.ToList();
+                tempList.RemoveAt(0);
+                _undoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+            }
+
+            LineEditState nextState = _redoStack.Pop();
+            _text = nextState.Text; // Assign directly
+            CaretLogicalPosition = nextState.CaretPosition;
+            TextStartIndex = nextState.TextStartIndex;
+
+            TextChanged?.Invoke(this, _text); // Manually invoke event
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    protected Vector2 GetLocalMousePosition()
+    {
+        var owningWindowNode = GetOwningWindowNode();
+        if (owningWindowNode != null)
+        {
+            return owningWindowNode.LocalMousePosition;
+        }
+
+        var mainAppWindow = ApplicationServer.Instance.GetMainAppWindow();
+        if (mainAppWindow != null)
+        {
+            return mainAppWindow.GetLocalMousePosition();
+        }
+
+        // Fallback if no window context, though this should ideally not be reached in a UI context
+        Log.Warning($"LineEdit '{Name}': Could not determine owning window for local mouse position. Using global Input.MousePosition.");
+        return Input.MousePosition;
+    }
+
+    // Helper class for Undo/Redo state
+    protected class LineEditState
+    {
+        public string Text { get; }
+        public int CaretPosition { get; } // Logical caret position
+        public int TextStartIndex { get; }
+
+        public LineEditState(string text, int caretPosition, int textStartIndex)
+        {
+            Text = text;
+            CaretPosition = caretPosition;
+            TextStartIndex = textStartIndex;
+        }
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\LineEdit.PlaceholderTextDisplayer.cs">
+namespace Cherris;
+
+public partial class LineEdit
+{
+    private class PlaceholderTextDisplayer : BaseText
+    {
+        public PlaceholderTextDisplayer(LineEdit parent) : base(parent)
+        {
+        }
+
+        protected override string GetTextToDisplay()
+        {
+            return parentLineEdit.PlaceholderText;
+        }
+
+        protected override bool ShouldSkipDrawing()
+        {
+            // Don't draw placeholder if there's actual text
+            return !string.IsNullOrEmpty(parentLineEdit.Text);
+        }
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\LineEdit\LineEdit.TextDisplayer.cs">
+namespace Cherris;
+
+public partial class LineEdit
+{
+    private class TextDisplayer : BaseText
+    {
+        public TextDisplayer(LineEdit parent) : base(parent)
+        {
+        }
+
+        protected override string GetTextToDisplay()
+        {
+            if (string.IsNullOrEmpty(parentLineEdit.Text))
+            {
+                return "";
+            }
+
+            string textToDisplay = parentLineEdit.Text;
+
+            if (parentLineEdit.Secret)
+            {
+                textToDisplay = new string(parentLineEdit.SecretCharacter, textToDisplay.Length);
+            }
+
+            // Ensure TextStartIndex is valid
+            int startIndex = Math.Clamp(parentLineEdit.TextStartIndex, 0, textToDisplay.Length);
+
+            // Calculate how many characters can actually be taken from startIndex
+            int availableLengthFromStartIndex = textToDisplay.Length - startIndex;
+
+            // Determine the number of characters to display (min of displayable count and available from start index)
+            int count = Math.Min(parentLineEdit.GetDisplayableCharactersCount(), availableLengthFromStartIndex);
+
+            if (count <= 0) return ""; // Nothing to display from this start index or no space
+
+            return textToDisplay.Substring(startIndex, count);
+        }
+
+        protected override bool ShouldSkipDrawing()
+        {
+            // If placeholder is showing, actual text displayer should skip.
+            // Placeholder skips if text has length. Actual text should draw if it has length.
+            // This seems redundant with GetTextToDisplay returning "" if no text.
+            return string.IsNullOrEmpty(parentLineEdit.Text);
+        }
     }
 }
 </file>

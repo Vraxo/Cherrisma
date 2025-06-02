@@ -56,40 +56,44 @@ public class MainAppWindow : Direct2DAppWindow
 
             case NativeMethods.WM_LBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Left, true);
-                return IntPtr.Zero; // Typically, framework handles focus; if specific behavior needed, adjust.
+                // Allow base class to handle focus and other default behaviors.
+                // If we return IntPtr.Zero, some default behaviors like setting focus on click might be bypassed.
+                // Let base class handle it unless we specifically want to override.
+                break;
             case NativeMethods.WM_LBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Left, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_RBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Right, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_RBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Right, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_MBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_MBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_XBUTTONDOWN:
                 int xButton1 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton1 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, true);
                 if (xButton1 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, true);
-                return IntPtr.Zero;
+                break;
             case NativeMethods.WM_XBUTTONUP:
                 int xButton2 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton2 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, false);
                 if (xButton2 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, false);
-                return IntPtr.Zero;
+                break;
 
             case NativeMethods.WM_MOUSEWHEEL:
                 short wheelDelta = NativeMethods.GET_WHEEL_DELTA_WPARAM(wParam);
                 Input.UpdateMouseWheel((float)wheelDelta / NativeMethods.WHEEL_DELTA);
-                return IntPtr.Zero;
+                // Let base handle if it needs to (e.g. for scrolling non-client areas or accessibility)
+                break;
 
             case NativeMethods.WM_KEYDOWN:
             case NativeMethods.WM_SYSKEYDOWN:
@@ -98,7 +102,7 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeDown, true);
                 }
-                // Allow base.HandleMessage for default key processing (e.g., Escape key for close)
+                // Allow base.HandleMessage for default key processing (e.g., Escape key for close, Tab navigation)
                 return base.HandleMessage(hWnd, msg, wParam, lParam);
 
             case NativeMethods.WM_KEYUP:
@@ -108,7 +112,15 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeUp, false);
                 }
-                return IntPtr.Zero; // Often, KeyUp doesn't need further default processing if KeyDown handled it
+                // Often, KeyUp doesn't need further default processing if KeyDown handled it.
+                // However, if base class might use it (e.g. for accessibility), let it pass.
+                // Returning IntPtr.Zero might be too aggressive.
+                break;
+
+            case NativeMethods.WM_CHAR:
+                char typedChar = (char)wParam;
+                Input.AddTypedCharacter(typedChar);
+                return IntPtr.Zero; // Character processed
         }
 
         return base.HandleMessage(hWnd, msg, wParam, lParam);

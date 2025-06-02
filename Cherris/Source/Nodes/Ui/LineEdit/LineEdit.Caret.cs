@@ -1,0 +1,269 @@
+﻿using System.Globalization; // For CultureInfo if needed for measurements
+using Vortice.DirectWrite;
+using Vortice.Mathematics;
+
+namespace Cherris;
+
+public partial class LineEdit
+{
+    protected class Caret : VisualItem
+    {
+        public float MaxTime { get; set; } = 0.5f;
+        private const byte MinAlphaByte = 0;
+        private const byte MaxAlphaByte = 255;
+        private float _timer = 0;
+        private float _alpha = 1.0f; // Use float for Color4 alpha
+        private LineEdit _parentLineEdit;
+
+        private float _arrowKeyTimer = 0f;
+        private const float ArrowKeyDelay = 0.5f;
+        private const float ArrowKeySpeed = 0.05f;
+        private bool _movingRight = false; // To track continuous movement direction
+
+        private int _caretDisplayPositionX; // Position relative to the start of visible text
+        public int CaretDisplayPositionX
+        {
+            get => _caretDisplayPositionX;
+            set
+            {
+                var maxVisibleChars = Math.Max(0, Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex));
+                _caretDisplayPositionX = Math.Clamp(value, 0, maxVisibleChars);
+                _alpha = 1.0f; // Reset blink
+                _timer = 0f;   // Reset blink timer
+            }
+        }
+
+        public Caret(LineEdit parent)
+        {
+            _parentLineEdit = parent;
+            Visible = false; // Drawn by LineEdit explicitly
+        }
+
+        public void UpdateLogic() // Renamed from Update to avoid confusion with Node.Process
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable) return;
+
+            HandleKeyboardInput();
+            HandleMouseInput();
+            UpdateAlpha();
+        }
+
+        public override void Draw(DrawingContext context)
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable || !Visible || _alpha <= 0.01f)
+            {
+                return;
+            }
+
+            Rect layoutRect = GetCaretLayoutRect(context);
+            if (layoutRect.Width <= 0 || layoutRect.Height <= 0) return;
+
+            ButtonStyle caretStyle = new ButtonStyle
+            {
+                FontName = _parentLineEdit.Styles.Current.FontName,
+                FontSize = _parentLineEdit.Styles.Current.FontSize,
+                FontWeight = _parentLineEdit.Styles.Current.FontWeight,
+                FontStyle = _parentLineEdit.Styles.Current.FontStyle,
+                FontStretch = _parentLineEdit.Styles.Current.FontStretch,
+                FontColor = new Color4(_parentLineEdit.Styles.Current.FontColor.R, _parentLineEdit.Styles.Current.FontColor.G, _parentLineEdit.Styles.Current.FontColor.B, _alpha),
+                WordWrapping = WordWrapping.NoWrap
+            };
+
+            _parentLineEdit.DrawFormattedText(
+                context,
+                "|",
+                layoutRect,
+                caretStyle,
+                HAlignment.Left,
+                VAlignment.Center);
+        }
+
+        private void HandleKeyboardInput()
+        {
+            bool rightPressed = Input.IsKeyPressed(KeyCode.RightArrow);
+            bool leftPressed = Input.IsKeyPressed(KeyCode.LeftArrow);
+
+            if (rightPressed || leftPressed)
+            {
+                _movingRight = rightPressed;
+                _arrowKeyTimer = 0f;
+                MoveCaret(_movingRight ? 1 : -1);
+            }
+            else if (Input.IsKeyDown(KeyCode.RightArrow) || Input.IsKeyDown(KeyCode.LeftArrow))
+            {
+                // Update direction if key state changes during hold
+                if (Input.IsKeyDown(KeyCode.RightArrow)) _movingRight = true;
+                else if (Input.IsKeyDown(KeyCode.LeftArrow)) _movingRight = false;
+
+                _arrowKeyTimer += Time.Delta;
+                if (_arrowKeyTimer >= ArrowKeyDelay)
+                {
+                    // Check if it's time for a repeat based on ArrowKeySpeed
+                    // This is a simplified way to handle repeat interval
+                    if ((_arrowKeyTimer - ArrowKeyDelay) % ArrowKeySpeed < Time.Delta) // Ensures one move per interval window
+                    {
+                        MoveCaret(_movingRight ? 1 : -1);
+                    }
+                }
+            }
+            else // No arrow keys down
+            {
+                _arrowKeyTimer = 0f;
+            }
+        }
+
+        private void HandleMouseInput()
+        {
+            if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
+            {
+                Vector2 localMousePos = _parentLineEdit.GetLocalMousePosition(); // Mouse pos relative to LineEdit's window
+
+                // Check if click is within LineEdit's bounds
+                Rect lineEditBounds = new Rect(
+                    _parentLineEdit.GlobalPosition.X, _parentLineEdit.GlobalPosition.Y,
+                    _parentLineEdit.Size.X, _parentLineEdit.Size.Y);
+
+                if (lineEditBounds.Contains(localMousePos.X, localMousePos.Y))
+                {
+                    MoveCaretToMousePosition(localMousePos);
+                }
+            }
+        }
+
+
+        private void MoveCaret(int direction)
+        {
+            // This moves the logical caret position (_parentLineEdit.CaretLogicalPosition)
+            // And then updates display position and start index.
+
+            int newLogicalPos = _parentLineEdit.CaretLogicalPosition + direction;
+            _parentLineEdit.CaretLogicalPosition = Math.Clamp(newLogicalPos, 0, _parentLineEdit.Text.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+        public void MoveCaretToMousePosition(Vector2 localMousePos) // localMousePos is relative to owning window
+        {
+            if (_parentLineEdit.Text.Length == 0)
+            {
+                _parentLineEdit.CaretLogicalPosition = 0;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            var owningWindow = _parentLineEdit.GetOwningWindow() as Direct2DAppWindow;
+            if (owningWindow == null || owningWindow.DWriteFactory == null) return; // Cannot measure text
+            IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
+
+
+            // Mouse X relative to the start of the text rendering area within LineEdit
+            float mouseXInTextRenderArea = localMousePos.X - (_parentLineEdit.GlobalPosition.X + _parentLineEdit.TextOrigin.X);
+
+            string visibleText = _parentLineEdit.Text.Substring(
+                _parentLineEdit.TextStartIndex,
+                Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
+            );
+
+            if (string.IsNullOrEmpty(visibleText))
+            {
+                // If visible text is empty but there's actual text (e.g. all scrolled off)
+                // or if text is genuinely empty.
+                _parentLineEdit.CaretLogicalPosition = (mouseXInTextRenderArea < 0 && _parentLineEdit.TextStartIndex > 0) ? _parentLineEdit.TextStartIndex : _parentLineEdit.TextStartIndex;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            IDWriteTextFormat? textFormat = owningWindow.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+            if (textFormat == null) return;
+
+            using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                visibleText,
+                textFormat,
+                _parentLineEdit.Size.X, // MaxWidth can be the LineEdit's width
+                _parentLineEdit.Size.Y  // MaxHeight
+            );
+
+            textLayout.WordWrapping = WordWrapping.NoWrap;
+
+            textLayout.HitTestPoint(mouseXInTextRenderArea, 0, out var isTrailingHit, out var isInside, out var metrics);
+
+            // metrics.textPosition is the index within the *visibleText* string.
+            int newCaretIndexInVisibleText = (int)metrics.TextPosition;
+            if (isTrailingHit && newCaretIndexInVisibleText < visibleText.Length)
+            {
+                // If clicked after the character, usually means caret goes after it.
+                // For the last char, HitTestTextPosition might give length, trailing means after that.
+                // If it's a leading click on char N, position is N.
+                // If it's a trailing click on char N, position is N+1.
+                // The DWrite behavior for HitTestPoint gives the index of the character *before* the click.
+                // If it's a trailing hit, it means the click was closer to the end of that character.
+                // So, if trailing and not the last char, move to next char's start.
+                // newCaretIndexInVisibleText = (int)metrics.TextPosition + (isTrailingHit ? 1 : 0);
+            }
+            // Let's refine: if trailing, it means the point is closer to the character *after* metrics.TextPosition
+            // So, the caret should be at metrics.TextPosition + 1
+            if (isTrailingHit) newCaretIndexInVisibleText = (int)metrics.TextPosition + (int)metrics.Length;
+
+
+            _parentLineEdit.CaretLogicalPosition = _parentLineEdit.TextStartIndex + Math.Clamp(newCaretIndexInVisibleText, 0, visibleText.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+
+        private Rect GetCaretLayoutRect(DrawingContext context)
+        {
+            Vector2 lineEditContentStartPos = _parentLineEdit.GlobalPosition + _parentLineEdit.TextOrigin;
+            float caretXOffset = 0;
+
+            if (CaretDisplayPositionX > 0 && _parentLineEdit.Text.Length > 0)
+            {
+                // Measure the width of the text up to the caret's display position
+                string textBeforeCaret = _parentLineEdit.Text.Substring(
+                    _parentLineEdit.TextStartIndex,
+                    Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
+                );
+
+                if (!string.IsNullOrEmpty(textBeforeCaret))
+                {
+                    var dwriteFactory = context.DWriteFactory;
+                    var owningWindow = context.OwnerWindow;
+                    IDWriteTextFormat? textFormat = owningWindow?.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+
+                    if (textFormat != null)
+                    {
+                        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+                        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                            textBeforeCaret,
+                            textFormat,
+                            float.MaxValue, // No wrapping for measurement
+                            _parentLineEdit.Size.Y);
+
+                        caretXOffset = textLayout.Metrics.Width;
+                    }
+                }
+            }
+
+            // Estimate caret width (e.g., 1-2 pixels or measure "|")
+            float caretWidth = _parentLineEdit.MeasureSingleCharWidth(context, "|", _parentLineEdit.Styles.Current);
+            if (caretWidth <= 0) caretWidth = 2; // Fallback if measurement fails
+
+            return new Rect(
+                lineEditContentStartPos.X + caretXOffset - caretWidth / 2f, // Center caret roughly
+                lineEditContentStartPos.Y,
+                caretWidth,
+                _parentLineEdit.Size.Y // Full height of LineEdit
+            );
+        }
+
+
+        private void UpdateAlpha()
+        {
+            _timer += Time.Delta;
+            if (_timer > MaxTime)
+            {
+                _alpha = (_alpha == 1.0f) ? 0.0f : 1.0f;
+                _timer = 0;
+            }
+        }
+    }
+}

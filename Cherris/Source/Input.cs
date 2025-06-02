@@ -15,6 +15,9 @@ public static class Input
     private static readonly Dictionary<string, KeyCode> _positiveYActions = [];
     private static readonly Dictionary<string, KeyCode> _negativeYActions = [];
 
+    // Placeholder for character input queue (to be populated by MainAppWindow from WM_CHAR)
+    private static readonly Queue<char> _typedCharQueue = new();
+
 
     public static void Update()
     {
@@ -31,6 +34,7 @@ public static class Input
         }
 
         _mouseWheelMovement = 0f;
+        // _typedCharQueue is not cleared here; it's consumed.
     }
 
     internal static void UpdateMouseButton(MouseButtonCode button, bool isDown)
@@ -65,6 +69,27 @@ public static class Input
     internal static void UpdateMouseWheel(float delta)
     {
         _mouseWheelMovement = delta;
+    }
+
+    // Method to be called by MainAppWindow when a WM_CHAR is processed
+    internal static void AddTypedCharacter(char c)
+    {
+        // Optionally filter non-printable characters here, though WM_CHAR usually provides printable ones.
+        // Backspace, Enter, Tab etc. are typically handled via WM_KEYDOWN.
+        if (!char.IsControl(c) || c == '\t') // Allow tab as a character, filter other control chars
+        {
+            _typedCharQueue.Enqueue(c);
+        }
+    }
+
+    // Method for UI elements like LineEdit to consume typed characters
+    public static char? ConsumeNextTypedChar()
+    {
+        if (_typedCharQueue.Count > 0)
+        {
+            return _typedCharQueue.Dequeue();
+        }
+        return null;
     }
 
 

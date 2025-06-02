@@ -74,7 +74,7 @@ public class Node2D : VisualItem
         }
 
         set;
-    }
+    } = new(1, 1);
 
     public virtual Vector2 GlobalPosition
     {

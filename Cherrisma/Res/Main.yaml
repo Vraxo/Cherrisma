@@ -1,5 +1,7 @@
 Node: MainScene::MainScene
 children:
+    - Node: LineEdit::LineEdit
+      Position: [300, 300]
     - Node: HSlider::Slider
       AnchorPreset: BottomCenter
       Size: [300, 8]

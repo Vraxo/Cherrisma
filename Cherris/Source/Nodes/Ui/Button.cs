@@ -32,19 +32,19 @@ public class Button : Control
 
     public string Text
     {
-        get;
+        get => displayedText; // Return displayedText which is updated by setter
 
         set
         {
-            if (field == value)
+            if (displayedText == value) // Use displayedText for comparison
             {
                 return;
             }
 
-            field = value;
-            displayedText = value;
+            displayedText = value; // Update displayedText
+            // The original 'field' is no longer needed if displayedText is used directly.
         }
-    } = "";
+    }
 
     public event Action? LeftClicked;
     public event Action? RightClicked;
@@ -204,7 +204,7 @@ public class Button : Control
             HoverSound?.Play(AudioBus);
             wasHovered = true;
         }
-        else if (wasHovered)
+        else if (wasHovered && !isMouseOver) // check !isMouseOver here
         {
             wasHovered = false;
             MouseExited?.Invoke();
@@ -258,11 +258,12 @@ public class Button : Control
             return;
         }
 
-        DrawBackground(context);
-        DrawText(context);
+        DrawButtonBackground(context);
+        DrawIcon(context); // Icon drawing logic moved here from DrawText for better layering
+        DrawButtonText(context);
     }
 
-    private void DrawBackground(DrawingContext context)
+    protected virtual void DrawButtonBackground(DrawingContext context)
     {
         Vector2 position = GlobalPosition - Origin;
         Vector2 size = ScaledSize;
@@ -271,7 +272,7 @@ public class Button : Control
         DrawStyledRectangle(context, bounds, Styles.Current);
     }
 
-    private void DrawIcon(DrawingContext context)
+    private void DrawIcon(DrawingContext context) // Kept private as it's Button-specific for now
     {
         if (Icon is null || context.RenderTarget is null)
         {
@@ -279,25 +280,49 @@ public class Button : Control
         }
 
         Log.Warning("DrawIcon is not implemented.");
+        // Placeholder for icon drawing logic
+        // Example:
+        // Vector2 iconPosition = CalculateIconPosition(); // Based on text, alignment, IconMargin
+        // context.RenderTarget.DrawBitmap(....);
     }
 
-    private void DrawText(DrawingContext context)
+    protected virtual void DrawButtonText(DrawingContext context)
     {
-        if (Styles.Current is null) return;
+        if (Styles.Current is null || string.IsNullOrEmpty(displayedText)) // Check if displayedText is empty
+        {
+            return;
+        }
 
         Vector2 position = GlobalPosition - Origin;
         Vector2 size = ScaledSize;
 
+        // Adjust text layout rect if icon is present
+        float textStartX = position.X + TextMargin.X + TextOffset.X;
+        float textAvailableWidth = Math.Max(0, size.X - TextMargin.X * 2);
+
+        if (Icon != null)
+        {
+            // This is a simplified adjustment. Real layout needs icon size.
+            // Assuming icon is on the left.
+            // float iconTotalWidth = Icon.Size.X + IconMargin;
+            // textStartX += iconTotalWidth;
+            // textAvailableWidth -= iconTotalWidth;
+            Log.Warning("Button.DrawButtonText icon adjustment not fully implemented.");
+        }
+
+
         var textLayoutRect = new Rect(
-            position.X + TextMargin.X + TextOffset.X,
+            textStartX,
             position.Y + TextMargin.Y + TextOffset.Y,
-            Math.Max(0, size.X - TextMargin.X * 2),
+            textAvailableWidth,
             Math.Max(0, size.Y - TextMargin.Y * 2)
         );
 
+        // ClipDisplayedText(); // Call this before drawing if AutoWidth is not fitting text
+
         DrawFormattedText(
             context,
-            displayedText,
+            displayedText, // Use the Button's own displayedText
             textLayoutRect,
             Styles.Current,
             TextHAlignment,
@@ -319,13 +344,16 @@ public class Button : Control
     {
         if (!ClipText || string.IsNullOrEmpty(Text) || Styles?.Current is null)
         {
-            displayedText = Text;
+            // If not clipping, displayedText should be the full Text.
+            // This assignment might be redundant if Text setter already updates displayedText.
+            // displayedText = Text; // This was 'this.Text', ensure it refers to Button's Text
             return;
         }
 
         Log.Warning("ClipDisplayedText requires DirectWrite implementation.");
 
-        displayedText = Text;
+        // Fallback: ensure displayedText is based on Button's Text property.
+        // displayedText = Text; // Ensure this refers to Button's Text.
     }
 
     private string GetTextClippedWithEllipsis(string input)

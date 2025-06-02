@@ -38,6 +38,8 @@ public abstract class Direct2DAppWindow : Win32Window
     private Dictionary<string, IDWriteTextFormat> textFormatCache = new();
 
     public float CurrentFps { get; private set; } = 0.0f;
+    public IDWriteFactory? DWriteFactory => dwriteFactory;
+
 
     public Direct2DAppWindow(string title = "Vortice DirectUI Base Window", int width = 800, int height = 600)
         : base(title, width, height)
