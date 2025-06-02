@@ -1,4 +1,25 @@
 Node: MainScene::MainScene
 children:
-  - Node: HSLider::HSlider
-    Position: [250, 250]
+    - Node: VideoPlayer::VideoPlayer
+      Position: [500, 500]
+      Scale: [0.25, 0.25]
+      FilePath: Res/Video.mp4
+      AutoPlay: true
+
+    - Node: Button::PlayOrPauseButton
+      Text: 'Play or Pause'
+      Position: [100, 100]
+      #Size: [32, 32]
+
+    - Node: HSlider::Slider
+      # Position: [250, 250] # Old position, now controlled by anchors/margins
+      CurrentLayoutAnchorPreset: BottomWide # Anchors to bottom, spans width
+      MarginLeft: 10                   # 10px from the left edge of the parent
+      MarginTop: -52                   # Top edge is (ParentHeight - 52px)
+                                       # Effectively ParentHeight - (ParentHeight - 52px) = 52px from parent bottom for its top edge
+      MarginRight: -10                 # 10px from the right edge of the parent (negative means inside)
+      MarginBottom: -32                # Bottom edge is (ParentHeight - 32px)
+                                       # Height = (ParentHeight + MarginBottom) - (ParentHeight + MarginTop)
+                                       # Height = (ParentHeight - 32) - (ParentHeight - 52) = 20px
+      # This results in a slider 20px tall, 32px from the bottom,
+      # spanning parent width with 10px margin on left and right.
