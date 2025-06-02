@@ -8,7 +8,7 @@ public partial class LineEdit
 {
     protected class Caret : VisualItem
     {
-        public float MaxTime { get; set; } = 3.0f; // Adjusted from 0.5f
+        public float MaxTime { get; set; } = 0.5f;
         private const byte MinAlphaByte = 0;
         private const byte MaxAlphaByte = 255;
         private float _timer = 0;
@@ -16,8 +16,8 @@ public partial class LineEdit
         private LineEdit _parentLineEdit;
 
         private float _arrowKeyTimer = 0f;
-        private const float ArrowKeyDelay = 0.5f;
-        private const float ArrowKeySpeed = 0.05f;
+        private const float ArrowKeyDelay = 1.0f;
+        private const float ArrowKeySpeed = 0.1f; // Changed from 0.05f to 0.1f
         private bool _movingRight = false; // To track continuous movement direction
 
         private int _caretDisplayPositionX; // Position relative to the start of visible text
