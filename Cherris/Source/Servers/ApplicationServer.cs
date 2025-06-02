@@ -18,6 +18,7 @@ public sealed class ApplicationServer
 
     private readonly Stopwatch deltaTimeStopwatch = new();
     private long lastDeltaTimeTicks = 0;
+    private const float MAX_DELTA_TIME = 1f / 30f; // approx 30 FPS, or 0.0333... seconds
 
     private ApplicationServer()
     {
@@ -84,13 +85,19 @@ public sealed class ApplicationServer
 
             mainWindow.Closed += OnMainWindowClosed;
 
-            ApplyConfig();
+            if (mainWindow != null && applicationConfig != null)
+            {
+                mainWindow.VSyncEnabled = applicationConfig.VSync;
+                mainWindow.BackdropType = applicationConfig.BackdropType;
+            }
 
             if (!mainWindow.InitializeWindowAndGraphics())
             {
-                Log.Error("Failed to initialize window graphics.");
+                Log.Error("Failed to initialize main window graphics.");
                 return false;
             }
+
+            ApplyConfig();
 
             mainWindow.ShowWindow();
         }
@@ -109,10 +116,14 @@ public sealed class ApplicationServer
         {
             long currentTicks = deltaTimeStopwatch.ElapsedTicks;
             long elapsedFrameTicks = currentTicks - lastDeltaTimeTicks;
-            Time.Delta = (float)elapsedFrameTicks / TimeSpan.TicksPerSecond;
-            // Clamp delta time to prevent extreme values (e.g., after a breakpoint or heavy stutter)
-            // Min delta of 0.001s (1000 FPS), Max delta of ~0.033s (~30 FPS)
-            Time.Delta = Math.Clamp(Time.Delta, 0.001f, 0.033f);
+
+            float rawDeltaTime = (float)elapsedFrameTicks / TimeSpan.TicksPerSecond;
+
+            // Ensure delta is not negative and clamp to a maximum value.
+            // No minimum clamp, allowing it to be very small for high FPS.
+            Time.Delta = Math.Max(0.0f, rawDeltaTime);
+            Time.Delta = Math.Min(Time.Delta, MAX_DELTA_TIME);
+
             lastDeltaTimeTicks = currentTicks;
 
             ProcessSystemMessages();
@@ -306,13 +317,6 @@ public sealed class ApplicationServer
             Log.Error("Cannot apply configuration because it was not loaded.");
             return;
         }
-
-        if (mainWindow != null)
-        {
-            mainWindow.BackdropType = applicationConfig.BackdropType;
-            mainWindow.VSyncEnabled = applicationConfig.VSync;
-        }
-
         SetRootNodeFromConfig(applicationConfig.MainScenePath);
     }
 }
