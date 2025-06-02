@@ -67,8 +67,6 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool ScrollToStartWhenTextFits { get; set; } = true;
-
 
     // TextStartIndex: The index of the first character in `_text` that is visible.
     // This is used for horizontal scrolling.
@@ -553,119 +551,45 @@ public partial class LineEdit : Button
         return displayableCharacterLengthInSubstring;
     }
 
-    private int GetMaxDisplayableCharsIfScrolledToStart()
-    {
-        if (Size.X <= TextOrigin.X * 2) return 0;
-        float availableWidth = Size.X - TextOrigin.X * 2;
-        if (availableWidth <= 0) return 0;
-
-        var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
-        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null)
-        {
-            return (int)(availableWidth / 8); // Rough fallback
-        }
-        IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
-
-        if (Text.Length == 0) return 0;
-
-        string textToMeasure = Text;
-
-        IDWriteTextFormat? textFormat = owningAppWindow.GetOrCreateTextFormat(Styles.Current);
-        if (textFormat == null)
-        {
-            return (int)(availableWidth / 8);
-        }
-        textFormat.WordWrapping = WordWrapping.NoWrap;
-
-        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
-            textToMeasure,
-            textFormat,
-            float.MaxValue,
-            Size.Y
-        );
-
-        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[textToMeasure.Length];
-        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
-
-        if (result.Failure || actualClusterCount == 0)
-        {
-            return 0;
-        }
-
-        float currentCumulativeWidth = 0;
-        int displayableCharLength = 0;
-        for (int i = 0; i < actualClusterCount; i++)
-        {
-            ClusterMetrics cluster = clusterMetricsBuffer[i];
-            if (currentCumulativeWidth + cluster.Width <= availableWidth)
-            {
-                currentCumulativeWidth += cluster.Width;
-                displayableCharLength += (int)cluster.Length;
-            }
-            else
-            {
-                break;
-            }
-        }
-        return displayableCharLength;
-    }
-
 
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
-        // Handle edge cases for empty text first
+        int displayableChars = GetDisplayableCharactersCount();
+        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
+        {
+            TextStartIndex = CaretLogicalPosition;
+            _caret.CaretDisplayPositionX = 0;
+            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
+            return;
+        }
         if (Text.Length == 0)
         {
             TextStartIndex = 0;
-            CaretLogicalPosition = 0;
             _caret.CaretDisplayPositionX = 0;
+            CaretLogicalPosition = 0;
             return;
         }
 
-        int maxCharsIfScrolledToStart = GetMaxDisplayableCharsIfScrolledToStart();
 
-        bool shouldForceScrollToStart = false;
-        if (ScrollToStartWhenTextFits && Text.Length <= maxCharsIfScrolledToStart)
+        if (CaretLogicalPosition < TextStartIndex)
         {
-            shouldForceScrollToStart = true;
+            TextStartIndex = CaretLogicalPosition;
+        }
+        else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
+        {
+            TextStartIndex = CaretLogicalPosition - displayableChars + 1;
         }
 
-        if (shouldForceScrollToStart)
+        TextStartIndex = Math.Max(0, TextStartIndex);
+        if (TextStartIndex + displayableChars > Text.Length && displayableChars > 0)
         {
-            TextStartIndex = 0;
+            TextStartIndex = Math.Max(0, Text.Length - displayableChars);
         }
-        else // Normal scrolling logic to keep caret in view
-        {
-            // Calculate how many characters fit FROM THE CURRENT TextStartIndex
-            int displayableCharsFromCurrentStart = GetDisplayableCharactersCount();
+        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
 
-            if (CaretLogicalPosition < TextStartIndex)
-            {
-                TextStartIndex = CaretLogicalPosition;
-            }
-            // If displayableCharsFromCurrentStart is 0 (e.g. TextStartIndex is too far right),
-            // this condition (CaretLogicalPosition >= TextStartIndex + 0) will likely be true if CaretLogicalPosition >= TextStartIndex.
-            // Then TextStartIndex will be CaretLogicalPosition + 1.
-            // The final clamp will correct this if it goes too far.
-            else if (CaretLogicalPosition >= TextStartIndex + displayableCharsFromCurrentStart)
-            {
-                // Ensure we don't make displayableCharsFromCurrentStart effectively negative for subtraction
-                int effectiveDisplayable = Math.Max(0, displayableCharsFromCurrentStart);
-                TextStartIndex = CaretLogicalPosition - effectiveDisplayable + 1;
-            }
-        }
 
-        // Recalculate effectively displayable characters based on the potentially updated TextStartIndex
-        int effectivelyDisplayableChars = GetDisplayableCharactersCount();
-        // If shouldForceScrollToStart was true, TextStartIndex is 0, so effectivelyDisplayableChars
-        // will be the same as maxCharsIfScrolledToStart (or Text.Length if shorter).
-
-        // Final clamping for TextStartIndex
-        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - effectivelyDisplayableChars));
-
-        // Update caret's display position (relative to the start of visible text)
         _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
-        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, effectivelyDisplayableChars > 0 ? effectivelyDisplayableChars : 0);
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
     }
 
 
@@ -701,10 +625,10 @@ public partial class LineEdit : Button
             LineEditState previousState = _undoStack.Pop();
             _text = previousState.Text;
             CaretLogicalPosition = previousState.CaretPosition;
-            TextStartIndex = previousState.TextStartIndex; // Restore TextStartIndex before calling UpdateCaret...
+            TextStartIndex = previousState.TextStartIndex;
 
             TextChanged?.Invoke(this, _text);
-            UpdateCaretDisplayPositionAndStartIndex(); // This will recalculate based on restored state
+            UpdateCaretDisplayPositionAndStartIndex();
         }
     }
 
@@ -724,10 +648,10 @@ public partial class LineEdit : Button
             LineEditState nextState = _redoStack.Pop();
             _text = nextState.Text;
             CaretLogicalPosition = nextState.CaretPosition;
-            TextStartIndex = nextState.TextStartIndex; // Restore TextStartIndex
+            TextStartIndex = nextState.TextStartIndex;
 
             TextChanged?.Invoke(this, _text);
-            UpdateCaretDisplayPositionAndStartIndex(); // Recalculate
+            UpdateCaretDisplayPositionAndStartIndex();
         }
     }
 
