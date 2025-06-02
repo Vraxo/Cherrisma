@@ -11,7 +11,6 @@ public abstract class VisualItem : Node
 {
     private bool fieldVisible = true;
     private int fieldLayer = 0;
-    private Vector2 _internalSize = new(320, 320);
 
 
     public bool Visible
@@ -44,28 +43,11 @@ public abstract class VisualItem : Node
         }
     }
 
-    public virtual Vector2 Size
-    {
-        get => _internalSize;
-        set
-        {
-            if (_internalSize == value)
-            {
-                return;
-            }
-
-            _internalSize = value;
-            SizeChanged?.Invoke(this, _internalSize);
-        }
-    }
-
     public delegate void VisibleEvent(VisualItem sender, bool visible);
     public delegate void LayerEvent(VisualItem sender, int layer);
 
     public event VisibleEvent? VisibleChanged;
     public event LayerEvent? LayerChanged;
-    public event EventHandler<Vector2>? SizeChanged;
-
 
     public virtual void Draw(DrawingContext context) { }
 
