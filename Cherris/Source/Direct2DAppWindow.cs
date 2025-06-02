@@ -135,6 +135,8 @@ public abstract class Direct2DAppWindow : Win32Window
         catch (Exception ex)
         {
             Log.Error($"Rendering Error in RenderFrame for '{Title}': {ex}");
+            // Consider if full reinitialization is always the best approach or if more specific error handling is needed.
+            // For now, aggressive reinitialization might help recover from transient graphics issues.
             graphicsInitialized = false;
             CleanupGraphics();
             InitializeGraphics();
@@ -145,51 +147,72 @@ public abstract class Direct2DAppWindow : Win32Window
 
     protected override void OnSize(int width, int height)
     {
+        Log.Info($"Direct2DAppWindow.OnSize('{Title}') called with {width}x{height}. Current graphicsInitialized: {graphicsInitialized}. RenderTarget null: {renderTarget == null}");
         if (graphicsInitialized && renderTarget is not null && width > 0 && height > 0)
         {
-            Log.Info($"Window '{Title}' resized to {width}x{height}. Resizing render target...");
+            Log.Info($"Window '{Title}' resized to {width}x{height}. Current RenderTarget size: {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}. Attempting resize...");
             try
             {
                 var newPixelSize = new SizeI(width, height);
 
-                CleanupDeviceSpecificResources();
+                // Check if actual resize is needed
+                if (renderTarget.PixelSize.Width == newPixelSize.Width && renderTarget.PixelSize.Height == newPixelSize.Height)
+                {
+                    Log.Info($"Render target for '{Title}' already at desired size {newPixelSize.Width}x{newPixelSize.Height}. Skipping D2D resize, but ensuring redraw via Invalidate().");
+                    Invalidate(); // Ensure repaint even if pixel size didn't change (e.g. DPI change might trigger OnSize)
+                    return;
+                }
 
-                renderTarget.Resize(newPixelSize);
+                CleanupDeviceSpecificResources(); // Clean brushes, text formats as they are device-dependent
 
-                RecreateDeviceSpecificResources();
+                Log.Info($"Calling renderTarget.Resize({newPixelSize.Width}, {newPixelSize.Height}) for '{Title}'.");
+                renderTarget.Resize(newPixelSize); // This can throw if device is lost
 
-                Log.Info($"Successfully resized render target for '{Title}'.");
-                Invalidate();
+                RecreateDeviceSpecificResources(); // Recreate brushes, text formats for the new/resized target
+
+                Log.Info($"Successfully resized render target for '{Title}' to {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}.");
+                Invalidate(); // Request a repaint with the new size
             }
             catch (SharpGenException ex)
             {
                 Log.Error($"Failed to resize Render Target for '{Title}' (SharpGenException): {ex.Message} HRESULT: {ex.ResultCode}");
                 if (ex.ResultCode.Code == D2D.ResultCode.RecreateTarget.Code)
                 {
-                    Log.Warning($"Render target needs recreation for '{Title}' (Detected in Resize Exception).");
-                    graphicsInitialized = false;
-                    CleanupGraphics();
-                    InitializeGraphics();
+                    Log.Warning($"Render target needs recreation for '{Title}' (Detected in Resize Exception). Forcing full graphics reinitialization.");
+                    graphicsInitialized = false; // Mark as not initialized
+                    CleanupGraphics();      // Clean up everything (including factory)
+                    InitializeGraphics();   // Attempt to reinitialize everything
                 }
+                // For other SharpGenExceptions, a full reinit might also be necessary.
+                // else { Log.Error("Unhandled SharpGenException during resize. State may be unstable."); }
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to resize Render Target for '{Title}' (General Exception): {ex}");
-                graphicsInitialized = false;
-                CleanupGraphics();
-                InitializeGraphics();
+                Log.Error($"Failed to resize Render Target for '{Title}' (General Exception): {ex}. Forcing full graphics reinitialization.");
+                graphicsInitialized = false; // Mark as not initialized
+                CleanupGraphics();      // Clean up everything
+                InitializeGraphics();   // Attempt to reinitialize
             }
         }
         else if (!graphicsInitialized && Handle != nint.Zero && IsOpen && width > 0 && height > 0)
         {
-            Log.Warning($"OnSize called for '{Title}' but graphics not initialized. Attempting initialization.");
-            InitializeGraphics();
+            // This case might happen if the window is created but initial graphics setup failed,
+            // or if a resize event occurs after graphics were explicitly uninitialized.
+            Log.Warning($"OnSize called for '{Title}' but graphics not initialized. Attempting initialization with new size {width}x{height}.");
+            InitializeGraphics(); // This will use the current ClientRect size which should match width/height
         }
         else if (width <= 0 || height <= 0)
         {
             Log.Warning($"Ignoring OnSize call for '{Title}' with invalid dimensions: {width}x{height}");
         }
+        else
+        {
+            // This path implies graphicsInitialized is false, OR renderTarget is null, OR window isn't open/handle is zero.
+            // We generally shouldn't proceed with graphics operations here.
+            Log.Warning($"OnSize for '{Title}' ({width}x{height}) skipped. Conditions: graphicsInitialized={graphicsInitialized}, renderTargetNull={renderTarget == null}, IsOpen={IsOpen}, HandleValid={Handle != nint.Zero}");
+        }
     }
+
 
     protected override void OnMouseMove(int x, int y) { }
     protected override void OnMouseDown(MouseButton button, int x, int y) { }
@@ -211,21 +234,24 @@ public abstract class Direct2DAppWindow : Win32Window
 
         try
         {
-            CleanupGraphics();
+            CleanupGraphics(); // Ensure clean state, especially if reinitializing
 
+            // Create Direct2D Factory
             Result factoryResult = D2D1.D2D1CreateFactory(D2DFactoryType.SingleThreaded, out d2dFactory);
-            factoryResult.CheckError();
+            factoryResult.CheckError(); // Throws on failure
             if (d2dFactory is null) throw new InvalidOperationException($"D2D Factory creation failed silently for '{Title}'.");
 
+            // Create DirectWrite Factory
             Result dwriteResult = DWrite.DWriteCreateFactory(DW.FactoryType.Shared, out dwriteFactory);
-            dwriteResult.CheckError();
+            dwriteResult.CheckError(); // Throws on failure
             if (dwriteFactory is null) throw new InvalidOperationException($"DWrite Factory creation failed silently for '{Title}'.");
 
+            // Get current client rectangle size for the render target
             var clientRectSize = GetClientRectSize();
             if (clientRectSize.Width <= 0 || clientRectSize.Height <= 0)
             {
                 Log.Warning($"Invalid client rect size ({clientRectSize.Width}x{clientRectSize.Height}) for '{Title}'. Aborting graphics initialization.");
-                CleanupGraphics();
+                CleanupGraphics(); // Clean up factories if created
                 return false;
             }
 
@@ -234,24 +260,29 @@ public abstract class Direct2DAppWindow : Win32Window
             var hwndRenderTargetProperties = new HwndRenderTargetProperties
             {
                 Hwnd = Handle,
-                PixelSize = new SizeI(clientRectSize.Width, clientRectSize.Height),
+                PixelSize = new SizeI(clientRectSize.Width, clientRectSize.Height), // Use actual client rect size
                 PresentOptions = VSyncEnabled ? PresentOptions.None : PresentOptions.Immediately
             };
 
+            Log.Info($"Creating HwndRenderTarget for '{Title}' with size {clientRectSize.Width}x{clientRectSize.Height} and PresentOptions: {hwndRenderTargetProperties.PresentOptions}");
             renderTarget = d2dFactory.CreateHwndRenderTarget(renderTargetProperties, hwndRenderTargetProperties);
             if (renderTarget is null) throw new InvalidOperationException($"Render target creation returned null unexpectedly for '{Title}'.");
+            Log.Info($"RenderTarget created for '{Title}'. Actual size: {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}");
 
-            renderTarget.TextAntialiasMode = D2D.TextAntialiasMode.Cleartype;
+            renderTarget.TextAntialiasMode = D2D.TextAntialiasMode.Cleartype; // Or Grayscale, Default, etc.
 
+            // Initialize or re-initialize caches
             brushCache = new Dictionary<Color4, ID2D1SolidColorBrush>();
             textFormatCache = new Dictionary<string, IDWriteTextFormat>();
 
+            // Create device-specific resources (like FPS text brush/format)
             RecreateDeviceSpecificResources();
 
+            // Reset FPS counter
             frameCountSinceUpdate = 0;
             CurrentFps = 0;
             lastFpsUpdateTimeTicks = 0;
-            fpsTimer.Restart();
+            fpsTimer.Restart(); // Restart the timer
 
             Log.Info($"Vortice Graphics initialized successfully for '{Title}' HWND {Handle}.");
             graphicsInitialized = true;
@@ -271,34 +302,50 @@ public abstract class Direct2DAppWindow : Win32Window
 
     private void RecreateDeviceSpecificResources()
     {
+        // This method should only be called if renderTarget and dwriteFactory are valid.
         if (renderTarget is null || dwriteFactory is null) return;
 
         try
         {
+            // Dispose existing FPS resources before recreating
             fpsTextFormat?.Dispose();
             fpsTextFormat = dwriteFactory.CreateTextFormat(fpsFontName, null, FontWeight.Normal, FontStyle.Normal, FontStretch.Normal, fpsFontSize, "en-us");
-            fpsTextFormat.TextAlignment = DW.TextAlignment.Leading;
-            fpsTextFormat.ParagraphAlignment = ParagraphAlignment.Near;
+            if (fpsTextFormat != null)
+            {
+                fpsTextFormat.TextAlignment = DW.TextAlignment.Leading;
+                fpsTextFormat.ParagraphAlignment = ParagraphAlignment.Near;
+            }
 
             fpsTextBrush?.Dispose();
             fpsTextBrush = renderTarget.CreateSolidColorBrush(fpsTextColor);
 
-            Log.Info($"Recreated FPS drawing resources for '{Title}'.");
+            // Note: Application-specific brushes and text formats (managed by brushCache/textFormatCache)
+            // are recreated on-demand by GetOrCreateBrush/GetOrCreateTextFormat.
+            // If you have other persistent D2D resources tied to the render target, recreate them here.
+
+            Log.Info($"Recreated FPS drawing resources for '{Title}'. Other cached resources will be recreated on demand.");
         }
         catch (Exception ex)
         {
+            // Log as a warning because failure here might not be fatal for all rendering,
+            // but indicates a problem.
             Log.Error($"Warning: Failed to recreate device-specific resources for '{Title}': {ex.Message}");
-            CleanupDeviceSpecificResources();
+            // Attempt to clean up to prevent using potentially invalid resources
+            CleanupDeviceSpecificResources(); // This will clear caches and dispose FPS resources
         }
     }
 
     private void CleanupDeviceSpecificResources()
     {
+        // Dispose FPS resources
         fpsTextBrush?.Dispose(); fpsTextBrush = null;
         fpsTextFormat?.Dispose(); fpsTextFormat = null;
 
+        // Dispose and clear cached brushes
         foreach (var brush in brushCache.Values) brush?.Dispose();
         brushCache.Clear();
+
+        // Dispose and clear cached text formats
         foreach (var format in textFormatCache.Values) format?.Dispose();
         textFormatCache.Clear();
         Log.Info($"Cleaned device-specific resources (brushes, formats) for '{Title}'.");
@@ -309,32 +356,40 @@ public abstract class Direct2DAppWindow : Win32Window
         bool resourcesExisted = d2dFactory is not null || renderTarget is not null || dwriteFactory is not null;
         if (resourcesExisted) Log.Info($"Cleaning up Vortice Graphics resources for '{Title}'...");
 
-        fpsTimer.Stop();
+        fpsTimer.Stop(); // Stop the FPS timer
 
+        // Clean up device-specific resources first (brushes, text formats, etc.)
+        // These depend on the renderTarget.
         CleanupDeviceSpecificResources();
 
+        // Dispose render target before the factory
         renderTarget?.Dispose(); renderTarget = null;
+
+        // Dispose factories
         dwriteFactory?.Dispose(); dwriteFactory = null;
-        d2dFactory?.Dispose(); d2dFactory = null;
-        graphicsInitialized = false;
+        d2dFactory?.Dispose(); d2dFactory = null; // Dispose D2D factory last
+
+        graphicsInitialized = false; // Mark as not initialized
 
         if (resourcesExisted) Log.Info($"Finished cleaning graphics resources for '{Title}'.");
     }
+
 
     protected SizeI GetClientRectSize()
     {
         if (Handle != nint.Zero && NativeMethods.GetClientRect(Handle, out NativeMethods.RECT r))
         {
+            // Ensure minimum size of 1x1 for valid render target creation
             int width = Math.Max(1, r.right - r.left);
             int height = Math.Max(1, r.bottom - r.top);
             return new SizeI(width, height);
         }
-
-        int baseWidth = Math.Max(1, Width);
+        // Fallback if GetClientRect fails or handle is not valid
+        int baseWidth = Math.Max(1, Width); // Use current Width/Height properties as fallback
         int baseHeight = Math.Max(1, Height);
-        if (Handle != nint.Zero)
+        if (Handle != nint.Zero) // Log warning only if handle was supposed to be valid
         {
-            Log.Warning($"GetClientRect failed for '{Title}'. Falling back to stored size: {baseWidth}x{baseHeight}");
+            Log.Warning($"GetClientRect failed for '{Title}'. Falling back to stored/initial size: {baseWidth}x{baseHeight}");
         }
         return new SizeI(baseWidth, baseHeight);
     }
@@ -347,29 +402,35 @@ public abstract class Direct2DAppWindow : Win32Window
             return null;
         }
 
+        // Check cache
         if (brushCache.TryGetValue(color, out ID2D1SolidColorBrush? brush) && brush is not null)
         {
             return brush;
         }
-        else if (brushCache.ContainsKey(color))
+        else if (brushCache.ContainsKey(color)) // Entry exists but brush is null (e.g. disposed due to recreate target)
         {
+            // Remove the stale entry so it can be recreated
             brushCache.Remove(color);
         }
 
+        // Create new brush
         try
         {
             brush = renderTarget.CreateSolidColorBrush(color);
             if (brush is not null)
             {
-                brushCache[color] = brush;
+                brushCache[color] = brush; // Add to cache
             }
             return brush;
         }
         catch (SharpGenException ex) when (ex.ResultCode.Code == D2D.ResultCode.RecreateTarget.Code)
         {
-            Log.Warning($"Recreate target detected in GetOrCreateBrush for color {color} on '{Title}'.");
-            CleanupDeviceSpecificResources();
-            return null;
+            Log.Warning($"Recreate target detected in GetOrCreateBrush for color {color} on '{Title}'. Forcing full graphics reinitialization.");
+            // This is an aggressive recovery. Consider if specific resource recreation is enough.
+            graphicsInitialized = false;
+            CleanupGraphics();
+            InitializeGraphics(); // This will clear caches and attempt to re-establish graphics.
+            return null; // Return null, next frame might succeed if reinitialization works.
         }
         catch (Exception ex)
         {
@@ -386,36 +447,41 @@ public abstract class Direct2DAppWindow : Win32Window
             return null;
         }
 
+        // Create a unique key for this text format configuration
         string cacheKey = $"{style.FontName}_{style.FontSize}_{style.FontWeight}_{style.FontStyle}_{style.FontStretch}_{style.WordWrapping}";
 
+        // Check cache
         if (textFormatCache.TryGetValue(cacheKey, out IDWriteTextFormat? format) && format is not null)
         {
             return format;
         }
-        else if (textFormatCache.ContainsKey(cacheKey))
+        else if (textFormatCache.ContainsKey(cacheKey)) // Entry exists but format is null
         {
             textFormatCache.Remove(cacheKey);
         }
 
+        // Create new text format
         try
         {
             format = dwriteFactory.CreateTextFormat(
                 style.FontName,
-                null,
+                null, // font collection (null for system default)
                 style.FontWeight,
                 style.FontStyle,
                 style.FontStretch,
                 style.FontSize,
-                "en-us"
+                "en-us" // locale (using generic English US)
             );
 
             if (format is not null)
             {
-                format.WordWrapping = style.WordWrapping;
-                textFormatCache[cacheKey] = format;
+                format.WordWrapping = style.WordWrapping; // Apply word wrapping
+                textFormatCache[cacheKey] = format; // Add to cache
             }
             return format;
         }
+        // Note: DWrite factory/format creation typically doesn't trigger RECREATE_TARGET directly.
+        // If DWrite operations fail, it's often due to more fundamental issues or invalid parameters.
         catch (Exception ex)
         {
             Log.Error($"Error creating text format for key {cacheKey} on '{Title}': {ex.Message}");

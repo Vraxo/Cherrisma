@@ -5,6 +5,7 @@ namespace Cherris;
 public sealed class SceneTree
 {
     public static SceneTree Instance { get; } = new();
+    public object SyncRoot { get; } = new object(); // For thread synchronization
 
     public Node? RootNode { get; set; }
     public bool Paused { get; set; }
@@ -157,38 +158,52 @@ public sealed class SceneTree
 
     public void ChangeScene(Node node)
     {
-        RootNode?.Free();
-        RootNode = node;
-        readyNodes.Clear();
+        // Ensure thread safety if ChangeScene can be called from different threads
+        lock (SyncRoot)
+        {
+            RootNode?.Free();
+            RootNode = node;
+            readyNodes.Clear(); // This needs to be careful with multi-threading
+            // Consider if activeTweens and timers also need clearing or adjustment
+        }
     }
 
     public Tween CreateTween(Node creatorNode, Node.ProcessMode processMode = Node.ProcessMode.Inherit)
     {
         Tween tween = new(creatorNode, processMode);
-        activeTweens.Add(tween);
+        // Consider thread safety for activeTweens list if tweens can be created from multiple threads
+        lock (SyncRoot) // Or a dedicated lock for tweens
+        {
+            activeTweens.Add(tween);
+        }
         return tween;
     }
 
     private void ProcessTweens()
     {
-        var tweensToProcess = new List<Tween>(activeTweens);
+        // Create a copy for safe iteration, especially if tweens can be removed during iteration
+        List<Tween> tweensToProcess;
+        lock (SyncRoot) // Or a dedicated lock for tweens
+        {
+            tweensToProcess = new List<Tween>(activeTweens);
+        }
+
         foreach (Tween tween in tweensToProcess)
         {
-            if (!tween.Active)
+            if (!tween.Active) // Check Active status outside the lock to avoid holding it too long
             {
-                activeTweens.Remove(tween);
+                lock (SyncRoot) { activeTweens.Remove(tween); }
                 continue;
             }
 
             if (tween.ShouldProcess(Paused))
             {
-                // TODO: Properly integrate Time.Delta or pass it
-                tween.Update(Time.Delta);
+                tween.Update(Time.Delta); // Time.Delta is now updated by the logic thread
             }
 
-            if (!tween.Active)
+            if (!tween.Active) // Re-check after update
             {
-                activeTweens.Remove(tween);
+                lock (SyncRoot) { activeTweens.Remove(tween); }
             }
         }
     }
