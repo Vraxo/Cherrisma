@@ -4,6 +4,7 @@ public class WindowNode : Node2D
 {
     protected SecondaryWindow? secondaryWindow;
     private string windowTitle = "Cherris Window";
+    private int windowWidth = 640;
     private int windowHeight = 480;
     private SystemBackdropType backdropType = SystemBackdropType.None;
 
@@ -21,13 +22,13 @@ public class WindowNode : Node2D
 
     public int Width
     {
-        get;
+        get => windowWidth;
         set
         {
-            if (field == value) return;
-            field = value;
+            if (windowWidth == value) return;
+            windowWidth = value;
         }
-    } = 640;
+    }
 
     public int Height
     {

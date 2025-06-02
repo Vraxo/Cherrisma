@@ -1,5 +1,4 @@
 <file path="MainScene.cs">
-using System.Numerics;
 using Cherris;
 
 namespace Cherrisma;
@@ -10,17 +9,7 @@ public class MainScene : Node
     {
         base.Process();
 
-        Vector2 windowSize = GetWindowSizeV2();
-        Log.Info($"MainScene.Process: WindowSize from GetWindowSizeV2(): {windowSize}");
-
-        var hSlider = GetNodeOrNull<HSlider>("HSlider");
-        if (hSlider != null)
-        {
-            hSlider.Position = windowSize / 2;
-        }
-        else
-        {
-        }
+        GetNode<HSlider>("HSlider").Position = GetWindowSizeV2() / 2;
     }
 }
 </file>
@@ -567,30 +556,20 @@ public abstract class Direct2DAppWindow : Win32Window
 
     protected override void OnSize(int width, int height)
     {
-        Log.Info($"Direct2DAppWindow.OnSize('{Title}') called with {width}x{height}. Current graphicsInitialized: {graphicsInitialized}. RenderTarget null: {renderTarget == null}");
         if (graphicsInitialized && renderTarget is not null && width > 0 && height > 0)
         {
-            Log.Info($"Window '{Title}' resized to {width}x{height}. Current RenderTarget size: {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}. Attempting resize...");
+            Log.Info($"Window '{Title}' resized to {width}x{height}. Resizing render target...");
             try
             {
                 var newPixelSize = new SizeI(width, height);
 
-                // Check if actual resize is needed
-                if (renderTarget.PixelSize.Width == newPixelSize.Width && renderTarget.PixelSize.Height == newPixelSize.Height)
-                {
-                    Log.Info($"Render target for '{Title}' already at desired size {newPixelSize.Width}x{newPixelSize.Height}. Skipping resize, but ensuring invalidated.");
-                    Invalidate(); // Ensure repaint even if size didn't change (e.g. DPI change might trigger OnSize)
-                    return;
-                }
-
                 CleanupDeviceSpecificResources();
 
-                Log.Info($"Calling renderTarget.Resize({newPixelSize.Width}, {newPixelSize.Height}) for '{Title}'.");
                 renderTarget.Resize(newPixelSize);
 
                 RecreateDeviceSpecificResources();
 
-                Log.Info($"Successfully resized render target for '{Title}' to {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}.");
+                Log.Info($"Successfully resized render target for '{Title}'.");
                 Invalidate();
             }
             catch (SharpGenException ex)
@@ -600,16 +579,16 @@ public abstract class Direct2DAppWindow : Win32Window
                 {
                     Log.Warning($"Render target needs recreation for '{Title}' (Detected in Resize Exception).");
                     graphicsInitialized = false;
-                    CleanupGraphics(); // Clean up everything
-                    InitializeGraphics(); // Attempt to reinitialize
+                    CleanupGraphics();
+                    InitializeGraphics();
                 }
             }
             catch (Exception ex)
             {
                 Log.Error($"Failed to resize Render Target for '{Title}' (General Exception): {ex}");
                 graphicsInitialized = false;
-                CleanupGraphics(); // Clean up everything
-                InitializeGraphics(); // Attempt to reinitialize
+                CleanupGraphics();
+                InitializeGraphics();
             }
         }
         else if (!graphicsInitialized && Handle != nint.Zero && IsOpen && width > 0 && height > 0)
@@ -620,10 +599,6 @@ public abstract class Direct2DAppWindow : Win32Window
         else if (width <= 0 || height <= 0)
         {
             Log.Warning($"Ignoring OnSize call for '{Title}' with invalid dimensions: {width}x{height}");
-        }
-        else
-        {
-            Log.Warning($"OnSize for '{Title}' ({width}x{height}) skipped. Conditions: graphicsInitialized={graphicsInitialized}, renderTargetNull={renderTarget == null}");
         }
     }
 
@@ -647,7 +622,7 @@ public abstract class Direct2DAppWindow : Win32Window
 
         try
         {
-            CleanupGraphics(); // Ensure clean state
+            CleanupGraphics();
 
             Result factoryResult = D2D1.D2D1CreateFactory(D2DFactoryType.SingleThreaded, out d2dFactory);
             factoryResult.CheckError();
@@ -674,10 +649,8 @@ public abstract class Direct2DAppWindow : Win32Window
                 PresentOptions = VSyncEnabled ? PresentOptions.None : PresentOptions.Immediately
             };
 
-            Log.Info($"Creating HwndRenderTarget for '{Title}' with size {clientRectSize.Width}x{clientRectSize.Height} and PresentOptions: {hwndRenderTargetProperties.PresentOptions}");
             renderTarget = d2dFactory.CreateHwndRenderTarget(renderTargetProperties, hwndRenderTargetProperties);
             if (renderTarget is null) throw new InvalidOperationException($"Render target creation returned null unexpectedly for '{Title}'.");
-            Log.Info($"RenderTarget created for '{Title}'. Actual size: {renderTarget.PixelSize.Width}x{renderTarget.PixelSize.Height}");
 
             renderTarget.TextAntialiasMode = D2D.TextAntialiasMode.Cleartype;
 
@@ -715,12 +688,8 @@ public abstract class Direct2DAppWindow : Win32Window
         {
             fpsTextFormat?.Dispose();
             fpsTextFormat = dwriteFactory.CreateTextFormat(fpsFontName, null, FontWeight.Normal, FontStyle.Normal, FontStretch.Normal, fpsFontSize, "en-us");
-            if (fpsTextFormat != null)
-            {
-                fpsTextFormat.TextAlignment = DW.TextAlignment.Leading;
-                fpsTextFormat.ParagraphAlignment = ParagraphAlignment.Near;
-            }
-
+            fpsTextFormat.TextAlignment = DW.TextAlignment.Leading;
+            fpsTextFormat.ParagraphAlignment = ParagraphAlignment.Near;
 
             fpsTextBrush?.Dispose();
             fpsTextBrush = renderTarget.CreateSolidColorBrush(fpsTextColor);
@@ -772,11 +741,11 @@ public abstract class Direct2DAppWindow : Win32Window
             return new SizeI(width, height);
         }
 
-        int baseWidth = Math.Max(1, Width); // Use current Width/Height properties as fallback
+        int baseWidth = Math.Max(1, Width);
         int baseHeight = Math.Max(1, Height);
         if (Handle != nint.Zero)
         {
-            Log.Warning($"GetClientRect failed for '{Title}'. Falling back to stored/initial size: {baseWidth}x{baseHeight}");
+            Log.Warning($"GetClientRect failed for '{Title}'. Falling back to stored size: {baseWidth}x{baseHeight}");
         }
         return new SizeI(baseWidth, baseHeight);
     }
@@ -795,7 +764,6 @@ public abstract class Direct2DAppWindow : Win32Window
         }
         else if (brushCache.ContainsKey(color))
         {
-            // Entry exists but brush is null (e.g. disposed due to recreate target)
             brushCache.Remove(color);
         }
 
@@ -810,12 +778,9 @@ public abstract class Direct2DAppWindow : Win32Window
         }
         catch (SharpGenException ex) when (ex.ResultCode.Code == D2D.ResultCode.RecreateTarget.Code)
         {
-            Log.Warning($"Recreate target detected in GetOrCreateBrush for color {color} on '{Title}'. Forcing full graphics reinitialization.");
-            // More aggressive recreation:
-            graphicsInitialized = false;
-            CleanupGraphics();
-            InitializeGraphics();
-            return null; // Return null, next frame might succeed
+            Log.Warning($"Recreate target detected in GetOrCreateBrush for color {color} on '{Title}'.");
+            CleanupDeviceSpecificResources();
+            return null;
         }
         catch (Exception ex)
         {
@@ -840,7 +805,6 @@ public abstract class Direct2DAppWindow : Win32Window
         }
         else if (textFormatCache.ContainsKey(cacheKey))
         {
-            // Entry exists but format is null (e.g. disposed due to recreate target)
             textFormatCache.Remove(cacheKey);
         }
 
@@ -848,12 +812,12 @@ public abstract class Direct2DAppWindow : Win32Window
         {
             format = dwriteFactory.CreateTextFormat(
                 style.FontName,
-                null, // font collection
+                null,
                 style.FontWeight,
                 style.FontStyle,
                 style.FontStretch,
                 style.FontSize,
-                "en-us" // locale
+                "en-us"
             );
 
             if (format is not null)
@@ -1419,9 +1383,6 @@ public class MainAppWindow : Direct2DAppWindow
     private bool _firstDrawLogged = false;
     private Vector2 _mainCurrentMousePosition = Vector2.Zero;
 
-    private const uint SIZEMOVE_TIMER_ID = 1;
-    private const uint SIZEMOVE_TIMER_INTERVAL = 16; // Milliseconds, roughly 60 FPS
-
     public MainAppWindow(string title = "My DirectUI App", int width = 800, int height = 600)
         : base(title, width, height)
     {
@@ -1451,121 +1412,61 @@ public class MainAppWindow : Direct2DAppWindow
     protected override void Cleanup()
     {
         Log.Info("MainAppWindow Cleanup starting.");
-        NativeMethods.KillTimer(Handle, (IntPtr)SIZEMOVE_TIMER_ID); // Ensure timer is killed if active
         base.Cleanup();
         Log.Info("MainAppWindow Cleanup finished.");
     }
 
     protected override IntPtr HandleMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
+        // Note: xPos, yPos, mousePos are now fetched inside specific message cases if needed,
+        // or handled by the base class after _mainCurrentMousePosition is set.
+
         switch (msg)
         {
-            case NativeMethods.WM_ENTERSIZEMOVE:
-                Log.Info($"WM_ENTERSIZEMOVE: Starting timer for '{Title}'.");
-                NativeMethods.SetTimer(hWnd, (IntPtr)SIZEMOVE_TIMER_ID, SIZEMOVE_TIMER_INTERVAL, IntPtr.Zero);
-                return IntPtr.Zero;
-
-            case NativeMethods.WM_EXITSIZEMOVE:
-                Log.Info($"WM_EXITSIZEMOVE: Killing timer for '{Title}'.");
-                NativeMethods.KillTimer(hWnd, (IntPtr)SIZEMOVE_TIMER_ID);
-
-                if (NativeMethods.GetClientRect(hWnd, out NativeMethods.RECT finalRect))
-                {
-                    int finalWidth = Math.Max(1, finalRect.right - finalRect.left);
-                    int finalHeight = Math.Max(1, finalRect.bottom - finalRect.top);
-
-                    if (this.Width != finalWidth || this.Height != finalHeight)
-                    {
-                        this.Width = finalWidth;
-                        this.Height = finalHeight;
-                        OnSize(this.Width, this.Height);
-                    }
-                    Log.Info($"WM_EXITSIZEMOVE: Final MainAppWindow.Width={this.Width}, MainAppWindow.Height={this.Height}");
-                }
-                Time.Delta = SIZEMOVE_TIMER_INTERVAL / 1000.0f; // Use a reasonable delta for the final process
-                Input.Update(); // Update input state for final process
-                SceneTree.Instance.Process();
-                var finalSlider = SceneTree.Instance.RootNode?.GetNodeOrNull<HSlider>("HSlider");
-                if (finalSlider != null)
-                {
-                    Log.Info($"WM_EXITSIZEMOVE: HSlider Position after Process: {finalSlider.Position}");
-                }
-                this.RenderFrame();
-                return IntPtr.Zero;
-
-            case NativeMethods.WM_TIMER:
-                if (wParam == (IntPtr)SIZEMOVE_TIMER_ID)
-                {
-                    Time.Delta = SIZEMOVE_TIMER_INTERVAL / 1000.0f; // Update Time.Delta
-                    Input.Update(); // Update input states
-
-                    if (NativeMethods.GetClientRect(hWnd, out NativeMethods.RECT currentRect))
-                    {
-                        int newWidth = Math.Max(1, currentRect.right - currentRect.left);
-                        int newHeight = Math.Max(1, currentRect.bottom - currentRect.top);
-
-                        if (this.Width != newWidth || this.Height != newHeight)
-                        {
-                            this.Width = newWidth;
-                            this.Height = newHeight;
-                            OnSize(this.Width, this.Height);
-                        }
-                        // Log.Info($"WM_TIMER: Updated MainAppWindow.Width={this.Width}, MainAppWindow.Height={this.Height}");
-                    }
-
-                    SceneTree.Instance.Process();
-                    // var slider = SceneTree.Instance.RootNode?.GetNodeOrNull<HSlider>("HSlider");
-                    // if (slider != null) {
-                    //     Log.Info($"WM_TIMER: HSlider Position after Process: {slider.Position}");
-                    // }
-                    this.RenderFrame();
-                    return IntPtr.Zero;
-                }
-                break;
-
             case NativeMethods.WM_MOUSEMOVE:
                 int x = NativeMethods.GET_X_LPARAM(lParam);
                 int y = NativeMethods.GET_Y_LPARAM(lParam);
                 _mainCurrentMousePosition = new Vector2(x, y);
-                Input.UpdateMousePosition(_mainCurrentMousePosition);
+                Input.UpdateMousePosition(_mainCurrentMousePosition); // Update global input state
+                // Allow base.HandleMessage to call OnMouseMove and other logic
                 return base.HandleMessage(hWnd, msg, wParam, lParam);
 
             case NativeMethods.WM_LBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Left, true);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero; // Typically, framework handles focus; if specific behavior needed, adjust.
             case NativeMethods.WM_LBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Left, false);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
 
             case NativeMethods.WM_RBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Right, true);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
             case NativeMethods.WM_RBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Right, false);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
 
             case NativeMethods.WM_MBUTTONDOWN:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, true);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
             case NativeMethods.WM_MBUTTONUP:
                 Input.UpdateMouseButton(MouseButtonCode.Middle, false);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
 
             case NativeMethods.WM_XBUTTONDOWN:
                 int xButton1 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton1 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, true);
                 if (xButton1 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, true);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
             case NativeMethods.WM_XBUTTONUP:
                 int xButton2 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 if (xButton2 == NativeMethods.XBUTTON1) Input.UpdateMouseButton(MouseButtonCode.Side, false);
                 if (xButton2 == NativeMethods.XBUTTON2) Input.UpdateMouseButton(MouseButtonCode.Extra, false);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
 
             case NativeMethods.WM_MOUSEWHEEL:
                 short wheelDelta = NativeMethods.GET_WHEEL_DELTA_WPARAM(wParam);
                 Input.UpdateMouseWheel((float)wheelDelta / NativeMethods.WHEEL_DELTA);
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero;
 
             case NativeMethods.WM_KEYDOWN:
             case NativeMethods.WM_SYSKEYDOWN:
@@ -1574,6 +1475,7 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeDown, true);
                 }
+                // Allow base.HandleMessage for default key processing (e.g., Escape key for close)
                 return base.HandleMessage(hWnd, msg, wParam, lParam);
 
             case NativeMethods.WM_KEYUP:
@@ -1583,7 +1485,7 @@ public class MainAppWindow : Direct2DAppWindow
                 {
                     Input.UpdateKey((KeyCode)vkCodeUp, false);
                 }
-                return base.HandleMessage(hWnd, msg, wParam, lParam);
+                return IntPtr.Zero; // Often, KeyUp doesn't need further default processing if KeyDown handled it
         }
 
         return base.HandleMessage(hWnd, msg, wParam, lParam);
@@ -1806,10 +1708,6 @@ public static class NativeMethods
     public const int WM_PARENTNOTIFY = 0x0210;
     public const int WM_ENTERIDLE = 0x0121;
     public const int WM_DWMCOMPOSITIONCHANGED = 0x031E;
-    public const int WM_ENTERSIZEMOVE = 0x0231;
-    public const int WM_EXITSIZEMOVE = 0x0232;
-    public const int WM_TIMER = 0x0113;
-
 
     public const int CW_USEDEFAULT = unchecked((int)0x80000000);
     public const int SW_SHOWNORMAL = 1;
@@ -1984,8 +1882,13 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr GetParent(IntPtr hWnd);
 
+    // Corrected signature: Takes ref int for enum/bool attributes
     [DllImport("dwmapi.dll", SetLastError = true)]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, DWMWINDOWATTRIBUTE dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    // Removed the incorrect overload taking ref DWMSBT
+    // [DllImport("dwmapi.dll", SetLastError = true)]
+    // public static extern int DwmSetWindowAttribute(IntPtr hwnd, DWMWINDOWATTRIBUTE dwAttribute, ref DWMSBT pvAttribute, int cbAttribute);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
@@ -1998,13 +1901,6 @@ public static class NativeMethods
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr SetTimer(IntPtr hWnd, IntPtr nIDEvent, uint uElapse, IntPtr lpTimerFunc);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool KillTimer(IntPtr hWnd, IntPtr nIDEvent);
 
     public static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
     {
@@ -2435,10 +2331,10 @@ public class Node
         var window = GetOwningWindow();
         if (window != null)
         {
-            Log.Info($"GetWindowSizeV2 (Node '{this.Name}'): Returning window size {window.Width}x{window.Height} from window '{window.Title}'");
+            // Width and Height on Win32Window reflect the client area size updated by OnSize
             return new Vector2(window.Width, window.Height);
         }
-        Log.Warning($"GetWindowSizeV2 (Node '{this.Name}'): Owning window is null, returning default 800x600.");
+        // Fallback default if no window context, e.g., during very early initialization
         return new Vector2(800, 600);
     }
 }

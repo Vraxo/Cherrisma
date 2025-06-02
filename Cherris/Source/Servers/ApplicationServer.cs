@@ -1,7 +1,5 @@
 ﻿using System.Reflection;
 using YamlDotNet.Serialization;
-using System.Diagnostics;
-using System.Threading;
 
 namespace Cherris;
 
@@ -14,11 +12,6 @@ public sealed class ApplicationServer
 
     private const string ConfigFilePath = "Res/Cherris/Config.yaml";
     private const string LogFilePath = "Res/Cherris/Log.txt";
-
-    private Stopwatch gameLoopStopwatch = new Stopwatch();
-    private Thread? gameLogicThread;
-    private volatile bool _isRunning = false;
-
 
     public static ApplicationServer Instance => lazyInstance.Value;
 
@@ -51,17 +44,9 @@ public sealed class ApplicationServer
             return;
         }
 
-        _isRunning = true;
-        gameLogicThread = new Thread(GameLogicLoop) { IsBackground = true, Name = "GameLogicThread" };
-        gameLogicThread.Start();
+        MainLoop();
 
-        UIThreadLoop();
-
-        Log.Info("UI loop exited. Signaling game logic thread to stop.");
-        _isRunning = false;
-        gameLogicThread?.Join();
-
-        Log.Info("Application exiting.");
+        Log.Info("Main loop exited. Application exiting.");
         Cleanup();
     }
 
@@ -101,7 +86,6 @@ public sealed class ApplicationServer
             }
 
             mainWindow.ShowWindow();
-            mainWindow.Invalidate(); // Ensure an initial paint request
         }
         catch (Exception ex)
         {
@@ -112,56 +96,21 @@ public sealed class ApplicationServer
         return true;
     }
 
-    private void GameLogicLoop()
-    {
-        Log.Info("GameLogicThread started.");
-        gameLoopStopwatch.Start();
-        long lastFrameTicks = gameLoopStopwatch.ElapsedTicks;
-
-        while (_isRunning)
-        {
-            long currentFrameTicks = gameLoopStopwatch.ElapsedTicks;
-            float deltaSeconds = (float)(currentFrameTicks - lastFrameTicks) / Stopwatch.Frequency;
-            lastFrameTicks = currentFrameTicks;
-
-            Time.Delta = Math.Max(1e-5f, deltaSeconds);
-            if (Time.Delta > 0.1f) Time.Delta = 0.1f;
-
-            lock (SceneTree.Instance.SyncRoot)
-            {
-                ClickServer.Instance.Process();
-                SceneTree.Instance.Process();
-            }
-
-            Input.Update();
-
-            int sleepTime = (int)(((1.0f / 60.0f) - Time.Delta) * 1000.0f);
-            if (sleepTime > 0)
-            {
-                Thread.Sleep(sleepTime);
-            }
-            else
-            {
-                Thread.Sleep(1);
-            }
-        }
-        gameLoopStopwatch.Stop();
-        Log.Info("GameLogicThread stopped.");
-    }
-
-    private void UIThreadLoop()
+    private void MainLoop()
     {
         while (mainWindow != null && mainWindow.IsOpen)
         {
             ProcessSystemMessages();
 
-            // Main window rendering is driven by WM_PAINT (from InvalidateRect or OS)
-            // Secondary window rendering can also be driven by their WM_PAINT
-            // If we need to force repaint secondary windows, we'd call Invalidate() on them.
+            ClickServer.Instance.Process();
+            SceneTree.Instance.Process();
+
+            mainWindow.RenderFrame();
             RenderSecondaryWindows();
+
+            Input.Update();
         }
     }
-
 
     private void ProcessSystemMessages()
     {
@@ -170,7 +119,7 @@ public sealed class ApplicationServer
             if (msg.message == NativeMethods.WM_QUIT)
             {
                 Log.Info("WM_QUIT received, signaling application close.");
-                _isRunning = false;
+                mainWindow?.Close();
                 break;
             }
 
@@ -181,25 +130,24 @@ public sealed class ApplicationServer
 
     private void RenderSecondaryWindows()
     {
-        List<SecondaryWindow> windowsToRenderSnapshot;
-        lock (secondaryWindows)
-        {
-            windowsToRenderSnapshot = new List<SecondaryWindow>(secondaryWindows);
-        }
+        List<SecondaryWindow> windowsToRender = new(secondaryWindows);
 
-        foreach (SecondaryWindow window in windowsToRenderSnapshot)
+        foreach (SecondaryWindow window in windowsToRender)
         {
             if (window.IsOpen)
             {
-                // window.Invalidate(); // If needed to force repaint
+                window.RenderFrame();
+            }
+            else
+            {
+                secondaryWindows.Remove(window);
             }
         }
     }
 
     private void OnMainWindowClosed()
     {
-        Log.Info("Main window closed signal received (via mainWindow.Closed event). Setting _isRunning to false.");
-        _isRunning = false;
+        Log.Info("Main window closed signal received. Closing secondary windows.");
         CloseAllSecondaryWindows();
     }
 
@@ -214,40 +162,27 @@ public sealed class ApplicationServer
 
     private void CloseAllSecondaryWindows()
     {
-        List<SecondaryWindow> windowsToCloseSnapshot;
-        lock (secondaryWindows)
+        var windowsToClose = new List<SecondaryWindow>(secondaryWindows);
+        foreach (var window in windowsToClose)
         {
-            windowsToCloseSnapshot = new List<SecondaryWindow>(secondaryWindows);
-        }
-        foreach (var window in windowsToCloseSnapshot)
-        {
-            if (window.IsOpen)
-            {
-                window.Close();
-            }
+            window.Close();
         }
     }
 
     internal void RegisterSecondaryWindow(SecondaryWindow window)
     {
-        lock (secondaryWindows)
+        if (!secondaryWindows.Contains(window))
         {
-            if (!secondaryWindows.Contains(window))
-            {
-                secondaryWindows.Add(window);
-                Log.Info($"Registered secondary window: {window.Title}");
-            }
+            secondaryWindows.Add(window);
+            Log.Info($"Registered secondary window: {window.Title}");
         }
     }
 
     internal void UnregisterSecondaryWindow(SecondaryWindow window)
     {
-        lock (secondaryWindows)
+        if (secondaryWindows.Remove(window))
         {
-            if (secondaryWindows.Remove(window))
-            {
-                Log.Info($"Unregistered secondary window: {window.Title}");
-            }
+            Log.Info($"Unregistered secondary window: {window.Title}");
         }
     }
 
@@ -293,7 +228,7 @@ public sealed class ApplicationServer
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[FATAL] Failed to create log file '{LogFilePath}': {ex.Message}");
+            Console.WriteLine($"[FATAL] Failed to create log file: {ex.Message}");
             Console.ResetColor();
         }
     }
@@ -305,14 +240,14 @@ public sealed class ApplicationServer
             string? assemblyLocation = Assembly.GetEntryAssembly()?.Location;
             if (string.IsNullOrEmpty(assemblyLocation))
             {
-                Log.Warning("Could not get assembly location. Current directory not changed.");
+                Log.Warning("Could not get assembly location.");
                 return;
             }
 
             string? directoryName = Path.GetDirectoryName(assemblyLocation);
             if (string.IsNullOrEmpty(directoryName))
             {
-                Log.Warning($"Could not get directory name from assembly location: {assemblyLocation}. Current directory not changed.");
+                Log.Warning($"Could not get directory name from assembly location: {assemblyLocation}");
                 return;
             }
 
@@ -350,7 +285,7 @@ public sealed class ApplicationServer
 
     private void ApplyConfig()
     {
-        if (applicationConfig == null)
+        if (applicationConfig is null)
         {
             Log.Error("Cannot apply configuration because it was not loaded.");
             return;
@@ -358,8 +293,8 @@ public sealed class ApplicationServer
 
         if (mainWindow != null)
         {
-            mainWindow.VSyncEnabled = applicationConfig.VSync;
             mainWindow.BackdropType = applicationConfig.BackdropType;
+            mainWindow.VSyncEnabled = applicationConfig.VSync;
         }
 
         SetRootNodeFromConfig(applicationConfig.MainScenePath);

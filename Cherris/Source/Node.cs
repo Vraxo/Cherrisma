@@ -400,10 +400,10 @@ public class Node
         var window = GetOwningWindow();
         if (window != null)
         {
-            Log.Info($"GetWindowSizeV2 (Node '{this.Name}'): Returning window size {window.Width}x{window.Height} from window '{window.Title}'");
+            // Width and Height on Win32Window reflect the client area size updated by OnSize
             return new Vector2(window.Width, window.Height);
         }
-        Log.Warning($"GetWindowSizeV2 (Node '{this.Name}'): Owning window is null, returning default 800x600.");
+        // Fallback default if no window context, e.g., during very early initialization
         return new Vector2(800, 600);
     }
 }

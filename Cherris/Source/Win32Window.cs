@@ -20,7 +20,7 @@ public abstract class Win32Window : IDisposable
     public string Title => _windowTitle;
     public int Width { get; protected set; }
     public int Height { get; protected set; }
-    public bool IsOpen { get; protected set; } = false;
+    public bool IsOpen { get; private set; } = false;
     public SystemBackdropType BackdropType { get; set; } = SystemBackdropType.None;
     public bool VSyncEnabled { get; set; } = true;
 
@@ -127,12 +127,7 @@ public abstract class Win32Window : IDisposable
         var backdropTypeEnum = GetSystemBackdropType();
         if (backdropTypeEnum == NativeMethods.DWMSBT.DWMSBT_NONE)
         {
-            int backdropValueNone = (int)NativeMethods.DWMSBT.DWMSBT_NONE;
-            NativeMethods.DwmSetWindowAttribute(
-               _hwnd,
-               NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_SYSTEMBACKDROP_TYPE,
-               ref backdropValueNone,
-               sizeof(int));
+            Log.Info($"Skipping backdrop application for '{Title}' (Type: None).");
             return;
         }
 
@@ -141,7 +136,8 @@ public abstract class Win32Window : IDisposable
 
         if (osVersion.Major < 10 || (osVersion.Major == 10 && osVersion.Build < requiredBuild))
         {
-            Log.Warning($"System backdrop type {BackdropType} ({backdropTypeEnum}) typically requires Windows 11 Build {requiredBuild} or later. Current OS: {osVersion}");
+            Log.Warning($"System backdrop type {BackdropType} ({backdropTypeEnum}) requires Windows 11 Build {requiredBuild} or later. Current: {osVersion}");
+            return;
         }
 
         try
@@ -155,7 +151,7 @@ public abstract class Win32Window : IDisposable
 
             if (result != 0)
             {
-                Log.Error($"DwmSetWindowAttribute failed for DWMWA_SYSTEMBACKDROP_TYPE ({BackdropType}) with HRESULT: 0x{result:X8} on HWND {_hwnd} ('{_windowTitle}').");
+                Log.Error($"DwmSetWindowAttribute failed for {NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_SYSTEMBACKDROP_TYPE} with HRESULT: 0x{result:X8} on HWND {_hwnd} ('{_windowTitle}').");
                 return;
             }
             Log.Info($"Applied system backdrop type {BackdropType} ({backdropTypeEnum}) to HWND {_hwnd} ('{_windowTitle}').");
@@ -169,11 +165,11 @@ public abstract class Win32Window : IDisposable
 
             if (result != 0)
             {
-                Log.Warning($"DwmSetWindowAttribute failed for DWMWA_USE_IMMERSIVE_DARK_MODE with HRESULT: 0x{result:X8} on HWND {_hwnd} ('{_windowTitle}'). This might be expected on some builds or if backdrop doesn't support it.");
+                Log.Warning($"DwmSetWindowAttribute failed for {NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_USE_IMMERSIVE_DARK_MODE} with HRESULT: 0x{result:X8} on HWND {_hwnd} ('{_windowTitle}'). This might be expected on some builds.");
             }
             else
             {
-                Log.Info($"Applied DWMWA_USE_IMMERSIVE_DARK_MODE=TRUE to HWND {_hwnd} ('{_windowTitle}').");
+                Log.Info($"Applied {NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_USE_IMMERSIVE_DARK_MODE}=TRUE to HWND {_hwnd} ('{_windowTitle}').");
             }
         }
         catch (Exception ex)
@@ -207,7 +203,7 @@ public abstract class Win32Window : IDisposable
 
         if (!Initialize())
         {
-            Log.Error($"Custom initialization (Initialize()) failed for '{Title}'.");
+            Log.Error($"Custom initialization failed for '{Title}'.");
             return false;
         }
 
@@ -236,7 +232,7 @@ public abstract class Win32Window : IDisposable
             }
             catch (Exception ex)
             {
-                Log.Error($"Error during WM_NCCREATE for HWND {hWnd}: {ex}");
+                Log.Error($"Error during WM_NCCREATE: {ex}");
             }
         }
         else
@@ -252,16 +248,13 @@ public abstract class Win32Window : IDisposable
                         window = handle.Target as Win32Window;
                     }
                 }
-                catch (InvalidOperationException ex)
+                catch (InvalidOperationException)
                 {
-                    Log.Error($"Error retrieving GCHandle from GWLP_USERDATA (InvalidOperationException) for HWND {hWnd}, MSG {msg}: {ex.Message}. Clearing GWLP_USERDATA.");
                     NativeMethods.SetWindowLongPtr(hWnd, NativeMethods.GWLP_USERDATA, IntPtr.Zero);
-                    window = null;
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"Error retrieving GCHandle from GWLP_USERDATA for HWND {hWnd}, MSG {msg}: {ex}");
-                    window = null;
+                    Log.Error($"Error retrieving GCHandle: {ex}");
                 }
             }
         }
@@ -297,9 +290,6 @@ public abstract class Win32Window : IDisposable
                 Width = NativeMethods.LOWORD(lParam);
                 Height = NativeMethods.HIWORD(lParam);
                 OnSize(Width, Height);
-                // After OnSize (which should resize render target), try to force an immediate paint.
-                NativeMethods.RedrawWindow(hWnd, IntPtr.Zero, IntPtr.Zero, NativeMethods.RDW_UPDATENOW | NativeMethods.RDW_INVALIDATE | NativeMethods.RDW_INTERNALPAINT);
-                Log.Info($"WM_SIZE for '{Title}' to {Width}x{Height}: OnSize called, RedrawWindow requested.");
                 return IntPtr.Zero;
 
             case NativeMethods.WM_MOUSEMOVE:
@@ -309,42 +299,49 @@ public abstract class Win32Window : IDisposable
             case NativeMethods.WM_LBUTTONDOWN:
                 OnMouseDown(MouseButton.Left, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_LBUTTONUP:
                 OnMouseUp(MouseButton.Left, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_RBUTTONDOWN:
                 OnMouseDown(MouseButton.Right, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_RBUTTONUP:
                 OnMouseUp(MouseButton.Right, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_MBUTTONDOWN:
                 OnMouseDown(MouseButton.Middle, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_MBUTTONUP:
                 OnMouseUp(MouseButton.Middle, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_XBUTTONDOWN:
                 int xButton1 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 OnMouseDown(xButton1 == NativeMethods.XBUTTON1 ? MouseButton.XButton1 : MouseButton.XButton2, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_XBUTTONUP:
                 int xButton2 = NativeMethods.GET_XBUTTON_WPARAM(wParam);
                 OnMouseUp(xButton2 == NativeMethods.XBUTTON1 ? MouseButton.XButton1 : MouseButton.XButton2, xPos, yPos);
                 return IntPtr.Zero;
+
             case NativeMethods.WM_MOUSEWHEEL:
                 short wheelDelta = NativeMethods.GET_WHEEL_DELTA_WPARAM(wParam);
                 OnMouseWheel(wheelDelta);
                 return IntPtr.Zero;
 
-
             case NativeMethods.WM_KEYDOWN:
             case NativeMethods.WM_SYSKEYDOWN:
                 int vkCodeDown = (int)wParam;
                 OnKeyDown(vkCodeDown);
+
                 if (vkCodeDown == NativeMethods.VK_ESCAPE && !IsKeyDownHandled(vkCodeDown))
                 {
-                    Log.Info($"Escape key pressed on '{Title}', posting WM_CLOSE.");
                     Close();
                 }
                 return IntPtr.Zero;
@@ -356,31 +353,24 @@ public abstract class Win32Window : IDisposable
                 return IntPtr.Zero;
 
             case NativeMethods.WM_DWMCOMPOSITIONCHANGED:
-                Log.Info($"WM_DWMCOMPOSITIONCHANGED received for {hWnd} ('{Title}'). Reapplying backdrop if applicable.");
+                Log.Info($"WM_DWMCOMPOSITIONCHANGED received for {hWnd} ('{Title}'). Reapplying backdrop.");
                 ApplySystemBackdrop();
                 break;
 
             case NativeMethods.WM_CLOSE:
-                Log.Info($"WM_CLOSE received for {hWnd} ('{Title}').");
                 if (OnClose())
                 {
-                    Log.Info($"OnClose for '{Title}' returned true. Destroying window.");
                     NativeMethods.DestroyWindow(hWnd);
-                }
-                else
-                {
-                    Log.Info($"OnClose for '{Title}' returned false. Window destruction cancelled.");
                 }
                 return IntPtr.Zero;
 
             case NativeMethods.WM_DESTROY:
-                Log.Info($"WM_DESTROY for {hWnd} ('{Title}'). Current IsOpen: {IsOpen}");
-                IsOpen = false;
+                Log.Info($"WM_DESTROY for {hWnd} ('{Title}').");
                 OnDestroy();
 
                 if (this is MainAppWindow)
                 {
-                    Log.Info("Main window destroyed, posting quit message (WM_QUIT).");
+                    Log.Info("Main window destroyed, posting quit message.");
                     NativeMethods.PostQuitMessage(0);
                 }
                 else if (this is SecondaryWindow secWin)
@@ -391,36 +381,30 @@ public abstract class Win32Window : IDisposable
 
             case NativeMethods.WM_NCDESTROY:
                 Log.Info($"WM_NCDESTROY: Releasing GCHandle for {hWnd} ('{Title}').");
-                IntPtr ptrToFree = NativeMethods.GetWindowLongPtr(hWnd, NativeMethods.GWLP_USERDATA);
-                if (ptrToFree != IntPtr.Zero)
+                IntPtr ptr = NativeMethods.GetWindowLongPtr(hWnd, NativeMethods.GWLP_USERDATA);
+                if (ptr != IntPtr.Zero)
                 {
                     try
                     {
-                        var handleToFree = GCHandle.FromIntPtr(ptrToFree);
-                        if (handleToFree.IsAllocated)
+                        var handle = GCHandle.FromIntPtr(ptr);
+                        if (handle.IsAllocated)
                         {
-                            handleToFree.Free();
+                            handle.Free();
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.Error($"Error freeing GCHandle on NCDESTROY for HWND {hWnd}: {ex.Message}");
+                        Log.Error($"Error freeing GCHandle on NCDESTROY: {ex.Message}");
                     }
                     NativeMethods.SetWindowLongPtr(hWnd, NativeMethods.GWLP_USERDATA, IntPtr.Zero);
                 }
 
-                if (_gcHandle.IsAllocated && GCHandle.ToIntPtr(_gcHandle) == ptrToFree)
+                if (_gcHandle.IsAllocated && GCHandle.ToIntPtr(_gcHandle) == ptr)
                 {
                     _gcHandle = default;
                 }
-                else if (_gcHandle.IsAllocated && ptrToFree == IntPtr.Zero)
-                {
-                    Log.Warning($"WM_NCDESTROY: _gcHandle was allocated but GWLP_USERDATA was zero for HWND {hWnd}. Freeing _gcHandle directly.");
-                    _gcHandle.Free();
-                }
-
-
                 _hwnd = IntPtr.Zero;
+                IsOpen = false;
                 break;
         }
 
@@ -431,12 +415,8 @@ public abstract class Win32Window : IDisposable
     {
         if (_hwnd != IntPtr.Zero && IsOpen)
         {
-            Log.Info($"Programmatically closing window {_hwnd} ('{Title}') by posting WM_CLOSE.");
+            Log.Info($"Programmatically closing window {_hwnd} ('{Title}').");
             NativeMethods.PostMessage(_hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-        }
-        else
-        {
-            Log.Warning($"Close called for '{Title}', but window handle is zero or window is not open (IsOpen: {IsOpen}).");
         }
     }
 
@@ -450,7 +430,6 @@ public abstract class Win32Window : IDisposable
 
     protected abstract bool Initialize();
     public abstract void RenderFrame();
-
     protected virtual void OnSize(int width, int height) { }
     protected virtual void OnMouseDown(MouseButton button, int x, int y) { }
     protected virtual void OnMouseUp(MouseButton button, int x, int y) { }
@@ -458,15 +437,10 @@ public abstract class Win32Window : IDisposable
     protected virtual void OnKeyDown(int virtualKeyCode) { }
     protected virtual void OnKeyUp(int virtualKeyCode) { }
     protected virtual void OnMouseWheel(short delta) { }
-
     protected virtual bool IsKeyDownHandled(int virtualKeyCode) { return false; }
-
     protected virtual bool OnClose() { return true; }
-
     protected virtual void OnDestroy() { }
-
     protected abstract void Cleanup();
-
 
     public void Dispose()
     {
@@ -478,31 +452,36 @@ public abstract class Win32Window : IDisposable
     {
         if (!_isDisposed)
         {
-            Log.Info($"Disposing Win32Window '{Title}' (disposing: {disposing}). Current HWND: {_hwnd}, IsOpen: {IsOpen}");
             if (disposing)
             {
+                Log.Info($"Disposing Win32Window '{Title}' (managed)...");
                 Cleanup();
             }
 
+            Log.Info($"Disposing Win32Window '{Title}' (unmanaged)...");
             if (_hwnd != IntPtr.Zero)
             {
-                Log.Info($"Dispose for '{Title}': Requesting close for HWND {_hwnd} (if still open).");
-                Close();
+                Log.Info($"Requesting destroy for window {_hwnd} ('{Title}') during Dispose...");
+                NativeMethods.DestroyWindow(_hwnd);
             }
-
-            if (_gcHandle.IsAllocated && _hwnd == IntPtr.Zero)
+            else
             {
-                Log.Warning($"Dispose for '{Title}': HWND is zero but _gcHandle is still allocated. Forcing free. This may indicate an issue in WM_NCDESTROY handling.");
-                try { _gcHandle.Free(); } catch (Exception ex) { Log.Error($"Error force-freeing _gcHandle for '{Title}': {ex.Message}"); }
+                if (_gcHandle.IsAllocated)
+                {
+                    Log.Warning($"Freeing potentially dangling GCHandle for '{Title}' during Dispose (window handle was already zero)...");
+                    try { _gcHandle.Free(); } catch (Exception ex) { Log.Error($"Error freeing GCHandle: {ex.Message}"); }
+                }
             }
 
             _isDisposed = true;
-            Log.Info($"Win32Window '{Title}' dispose process initiated. _isDisposed set to true.");
+            IsOpen = false;
+            Log.Info($"Win32Window '{Title}' dispose initiated.");
         }
     }
 
     ~Win32Window()
     {
+        Log.Warning($"Win32Window Finalizer called for '{Title}'! Ensure Dispose() was called.");
         Dispose(disposing: false);
     }
 }

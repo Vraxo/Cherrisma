@@ -45,11 +45,6 @@ public static class NativeMethods
     public const int WM_PARENTNOTIFY = 0x0210;
     public const int WM_ENTERIDLE = 0x0121;
     public const int WM_DWMCOMPOSITIONCHANGED = 0x031E;
-    public const int WM_ENTERSIZEMOVE = 0x0231;
-    public const int WM_EXITSIZEMOVE = 0x0232;
-    public const int WM_TIMER = 0x0113;
-    public const int WM_WINDOWPOSCHANGING = 0x0046;
-
 
     public const int CW_USEDEFAULT = unchecked((int)0x80000000);
     public const int SW_SHOWNORMAL = 1;
@@ -66,20 +61,6 @@ public static class NativeMethods
     public const int XBUTTON2 = 0x0002;
 
     public const uint PM_REMOVE = 0x0001;
-
-    public const uint RDW_INVALIDATE = 0x0001;
-    public const uint RDW_INTERNALPAINT = 0x0002;
-    public const uint RDW_ERASE = 0x0004;
-    public const uint RDW_VALIDATE = 0x0008;
-    public const uint RDW_NOINTERNALPAINT = 0x0010;
-    public const uint RDW_NOERASE = 0x0020;
-    public const uint RDW_NOCHILDREN = 0x0040;
-    public const uint RDW_ALLCHILDREN = 0x0080;
-    public const uint RDW_UPDATENOW = 0x0100;
-    public const uint RDW_ERASENOW = 0x0200;
-    public const uint RDW_FRAME = 0x0400;
-    public const uint RDW_NOFRAME = 0x0800;
-
 
     public enum DWMWINDOWATTRIBUTE
     {
@@ -160,19 +141,6 @@ public static class NativeMethods
         public uint dwExStyle;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct WINDOWPOS
-    {
-        public IntPtr hwnd;
-        public IntPtr hwndInsertAfter;
-        public int x;
-        public int y;
-        public int cx;
-        public int cy;
-        public uint flags;
-    }
-
-
     public delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
@@ -251,8 +219,13 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr GetParent(IntPtr hWnd);
 
+    // Corrected signature: Takes ref int for enum/bool attributes
     [DllImport("dwmapi.dll", SetLastError = true)]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, DWMWINDOWATTRIBUTE dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    // Removed the incorrect overload taking ref DWMSBT
+    // [DllImport("dwmapi.dll", SetLastError = true)]
+    // public static extern int DwmSetWindowAttribute(IntPtr hwnd, DWMWINDOWATTRIBUTE dwAttribute, ref DWMSBT pvAttribute, int cbAttribute);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
@@ -265,18 +238,6 @@ public static class NativeMethods
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
     private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr SetTimer(IntPtr hWnd, IntPtr nIDEvent, uint uElapse, IntPtr lpTimerFunc);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool KillTimer(IntPtr hWnd, IntPtr nIDEvent);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
-
 
     public static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
     {
