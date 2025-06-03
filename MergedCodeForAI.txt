@@ -38,6 +38,7 @@ children:
       AnchorPreset: TopCenter
       MarginTop: 32
       HAlignment: Left
+      #RelativeWidth: 0.5
 
     - Node: HSlider::Slider
       AnchorPreset: BottomCenter
@@ -8185,6 +8186,14 @@ public partial class LineEdit : Button
     // CaretLogicalPosition: The caret's position as an index within the full `_text` string.
     internal int CaretLogicalPosition { get; set; } = 0;
 
+    /// <summary>
+    /// If true, when deleting characters while text is scrolled to the right (hiding text on the left),
+    /// the LineEdit will attempt to scroll back to the left to ensure the visible area is utilized,
+    /// rather than leaving empty space on the right while text remains hidden on the left.
+    /// Defaults to false to maintain original behavior.
+    /// </summary>
+    public bool AutoScrollOnDelete { get; set; } = false;
+
 
     public event EventHandler? FirstCharacterEntered;
     public event EventHandler? Cleared;
@@ -8592,6 +8601,11 @@ public partial class LineEdit : Button
         Confirmed?.Invoke(this, Text);
     }
 
+    /// <summary>
+    /// Calculates how many characters of the current text, starting from TextStartIndex,
+    /// can actually fit within the LineEdit's visible width.
+    /// This is used by TextDisplayer.
+    /// </summary>
     internal int GetDisplayableCharactersCount()
     {
         if (Size.X <= TextOrigin.X * 2) return 0;
@@ -8603,15 +8617,15 @@ public partial class LineEdit : Button
         if (owningAppWindow == null || owningAppWindow.DWriteFactory == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: Owning window or DWriteFactory not available. Falling back to rough estimate.");
-            return (int)(availableWidth / 8); // Rough fallback
+            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f)); // Rough fallback based on font size
         }
         IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
 
         if (TextStartIndex >= Text.Length && Text.Length > 0)
         {
-            return 0;
+            return 0; // TextStartIndex is beyond or at the end of the text.
         }
-        if (Text.Length == 0) return 0;
+        if (Text.Length == 0) return 0; // No text to display.
 
         string textToMeasure = Text.Substring(TextStartIndex);
         if (string.IsNullOrEmpty(textToMeasure)) return 0;
@@ -8620,14 +8634,14 @@ public partial class LineEdit : Button
         if (textFormat == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
-            return (int)(availableWidth / 8);
+            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f));
         }
         textFormat.WordWrapping = WordWrapping.NoWrap;
 
         using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
             textToMeasure,
             textFormat,
-            float.MaxValue,
+            float.MaxValue, // Layout with effectively infinite width
             Size.Y
         );
 
@@ -8637,7 +8651,7 @@ public partial class LineEdit : Button
         if (result.Failure)
         {
             Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
-            return (int)(availableWidth / 8); // Fallback on error
+            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f)); // Fallback
         }
 
         if (actualClusterCount == 0) return 0;
@@ -8655,51 +8669,123 @@ public partial class LineEdit : Button
             }
             else
             {
-                break;
+                break; // No more characters fit
             }
         }
         return displayableCharacterLengthInSubstring;
     }
 
+    /// <summary>
+    /// Calculates the maximum number of "typical" characters (e.g., 'x')
+    /// that can fit into the LineEdit's available width using the current font style.
+    /// This is used for caret and scroll logic to determine the field's capacity.
+    /// </summary>
+    private int CalculateFieldCharacterCapacity()
+    {
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0) return 0;
+
+        var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
+        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null || Styles?.Current == null)
+        {
+            Log.Warning("LineEdit.CalculateFieldCharacterCapacity: Dependencies not available. Falling back to rough estimate.");
+            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f));
+        }
+        IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
+        ButtonStyle currentStyle = Styles.Current;
+
+        IDWriteTextFormat? textFormat = owningAppWindow.GetOrCreateTextFormat(currentStyle);
+        if (textFormat == null)
+        {
+            Log.Warning("LineEdit.CalculateFieldCharacterCapacity: Could not get TextFormat. Falling back.");
+            return (int)(availableWidth / (currentStyle.FontSize * 0.6f));
+        }
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        string sampleChar = "x"; // Representative character
+        // Max length for sampleText: ensure it's reasonably large but not excessive.
+        // Using 256 as a practical limit for sample text length for this measurement.
+        string sampleText = new string(sampleChar[0], 256);
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+            sampleText,
+            textFormat,
+            float.MaxValue,
+            Size.Y
+        );
+
+        int fittedChars = 0;
+        for (uint charIndex = 0; charIndex < sampleText.Length; charIndex++)
+        {
+            // Get the x-coordinate of the TRAILING edge of the character at charIndex
+            textLayout.HitTestTextPosition(charIndex, true, out float charTrailingEdgeX, out _, out HitTestMetrics _);
+
+            if (charTrailingEdgeX <= availableWidth)
+            {
+                fittedChars = (int)charIndex + 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return fittedChars;
+    }
+
 
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
-        int displayableChars = GetDisplayableCharactersCount();
-        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
+        int fieldCharacterCapacity = CalculateFieldCharacterCapacity();
+
+        if (Text.Length == 0)
+        {
+            TextStartIndex = 0;
+            CaretLogicalPosition = 0;
+            _caret.CaretDisplayPositionX = 0;
+            return;
+        }
+
+        // If LineEdit is too small to display even one character.
+        if (fieldCharacterCapacity <= 0)
         {
             TextStartIndex = CaretLogicalPosition;
             _caret.CaretDisplayPositionX = 0;
             TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
             return;
         }
-        if (Text.Length == 0)
-        {
-            TextStartIndex = 0;
-            _caret.CaretDisplayPositionX = 0;
-            CaretLogicalPosition = 0;
-            return;
-        }
 
-
+        // Adjust TextStartIndex based on CaretLogicalPosition to ensure caret is visible.
         if (CaretLogicalPosition < TextStartIndex)
         {
             TextStartIndex = CaretLogicalPosition;
         }
-        else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
+        else if (CaretLogicalPosition > TextStartIndex + fieldCharacterCapacity)
         {
-            TextStartIndex = CaretLogicalPosition - displayableChars + 1;
+            TextStartIndex = CaretLogicalPosition - fieldCharacterCapacity;
         }
 
-        TextStartIndex = Math.Max(0, TextStartIndex);
-        if (TextStartIndex + displayableChars > Text.Length && displayableChars > 0)
+        // Auto-scroll left on delete if enabled and applicable
+        if (AutoScrollOnDelete)
         {
-            TextStartIndex = Math.Max(0, Text.Length - displayableChars);
+            if ((Text.Length - TextStartIndex) < fieldCharacterCapacity && TextStartIndex > 0)
+            {
+                TextStartIndex = Math.Max(0, Text.Length - fieldCharacterCapacity);
+            }
         }
-        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
 
+        // Final clamping for TextStartIndex
+        if (Text.Length <= fieldCharacterCapacity)
+        {
+            TextStartIndex = 0;
+        }
+        else
+        {
+            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length - fieldCharacterCapacity);
+        }
 
         _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
-        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
+        int actualCharsInViewAfterStartIndex = Text.Length - TextStartIndex;
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, Math.Min(fieldCharacterCapacity, actualCharsInViewAfterStartIndex));
     }
 
 
@@ -8737,8 +8823,8 @@ public partial class LineEdit : Button
             CaretLogicalPosition = previousState.CaretPosition;
             TextStartIndex = previousState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text);
             UpdateCaretDisplayPositionAndStartIndex();
+            TextChanged?.Invoke(this, _text);
         }
     }
 
@@ -8760,8 +8846,8 @@ public partial class LineEdit : Button
             CaretLogicalPosition = nextState.CaretPosition;
             TextStartIndex = nextState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text);
             UpdateCaretDisplayPositionAndStartIndex();
+            TextChanged?.Invoke(this, _text);
         }
     }
 
@@ -8875,250 +8961,12 @@ public partial class LineEdit
 }
 </file>
 
-<file path="Source\Nodes\Ui\Slider\HSlider.cs">
+<file path="Source\Nodes\Ui\Slider\BaseSlider.cs">
 using Vortice.Mathematics; // For Rect
 
 namespace Cherris;
 
-public class HSlider : Slider
-{
-    public HSliderDirection Direction { get; set; } = HSliderDirection.LeftToRight;
-
-    protected override void CalculateTrackBounds()
-    {
-        // trackPosition is the top-left corner of the drawable slider area.
-        // Since GlobalPosition is now the top-left of the Node2D's bounding box,
-        // trackPosition can be set directly to GlobalPosition.
-        trackPosition = GlobalPosition;
-
-        // trackMin and trackMax are used for converting mouse position to slider value.
-        // They should represent the clickable/effective range of the track itself.
-        trackMin = trackPosition.X;
-        // If the grabber's center can align with the track ends:
-        trackMax = trackPosition.X + Size.X;
-        // If the grabber must stay fully within track visually (for mouse interaction):
-        // trackMax = trackPosition.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
-        // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping based on full Size.X range.
-    }
-
-    protected override void UpdateHoverStates()
-    {
-        Vector2 mousePos = GetLocalMousePosition();
-
-        // Track hover: considers the whole Size of the slider, relative to its top-left (trackPosition)
-        trackHovered = mousePos.X >= trackPosition.X &&
-                       mousePos.X <= trackPosition.X + Size.X &&
-                       mousePos.Y >= trackPosition.Y &&
-                       mousePos.Y <= trackPosition.Y + Size.Y;
-
-        // Grabber hover: uses actual grabber bounds
-        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // This is top-left of grabber
-        grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
-                         mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
-                         mousePos.Y >= grabberTopLeftPos.Y &&
-                         mousePos.Y <= grabberTopLeftPos.Y + GrabberSize.Y;
-    }
-
-    protected override void HandleInput()
-    {
-        HandleMousePress();
-        HandleMouseDrag();
-        HandleMouseWheel();
-    }
-
-    private void HandleMousePress()
-    {
-        if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
-        {
-            // Mouse position is already local to the window.
-            // We need to check if it's within the slider's bounds (trackPosition to trackPosition + Size).
-            float localMouseX = GetLocalMousePosition().X;
-
-            if (trackHovered) // If clicked anywhere on the track (trackHovered already checks this)
-            {
-                // Clamp mouse X to be within the visual track extents for value calculation
-                float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
-                Value = ConvertPositionToValue(clampedMouseXOnTrack);
-                grabberPressed = true; // Start "dragging" immediately
-                PlaySound();
-            }
-        }
-        else if (Input.IsMouseButtonReleased(MouseButtonCode.Left))
-        {
-            grabberPressed = false;
-        }
-    }
-
-    private void HandleMouseDrag()
-    {
-        if (!grabberPressed) return;
-
-        if (Input.IsMouseButtonReleased(MouseButtonCode.Left)) // Check for release during drag
-        {
-            grabberPressed = false;
-            return;
-        }
-
-        float localMouseX = GetLocalMousePosition().X;
-        // Clamp mouse X to be within the visual track extents for value calculation
-        float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
-        Value = ConvertPositionToValue(clampedMouseXOnTrack);
-    }
-
-    private void HandleMouseWheel()
-    {
-        if (!trackHovered && !grabberHovered) return; // Only respond if mouse is over slider
-
-        float wheelDelta = Input.GetMouseWheelMovement();
-        if (wheelDelta == 0) return;
-
-        Value = ApplyStep(Value + (wheelDelta * Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1)));
-        PlaySound();
-    }
-
-    protected override float ConvertPositionToValue(float positionOnTrackInLocalSpace)
-    {
-        // positionOnTrackInLocalSpace is a local X coordinate (e.g., mouse.X)
-        // effectiveTrackMin is the track's starting X coordinate (trackPosition.X)
-        float effectiveTrackMin = trackPosition.X;
-        float effectiveTrackWidth = Size.X;
-
-        if (effectiveTrackWidth <= 0) return MinValue;
-
-        // Normalize the position relative to the track's start and width
-        float normalized = (positionOnTrackInLocalSpace - effectiveTrackMin) / effectiveTrackWidth;
-        normalized = Math.Clamp(normalized, 0f, 1f);
-
-        if (Direction == HSliderDirection.RightToLeft)
-        {
-            normalized = 1f - normalized;
-        }
-
-        float rawValue = MinValue + normalized * (MaxValue - MinValue);
-        return ApplyStep(rawValue);
-    }
-
-    protected override void DrawForeground(DrawingContext context)
-    {
-        float range = MaxValue - MinValue;
-        float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
-        fillRatio = Math.Clamp(fillRatio, 0f, 1f);
-
-        float foregroundWidth = Size.X * fillRatio;
-        Rect foregroundRect;
-
-        // trackPosition is the top-left of the slider.
-        if (Direction == HSliderDirection.RightToLeft)
-        {
-            foregroundRect = new Rect(
-                trackPosition.X + Size.X - foregroundWidth, // Starts from the right and extends left
-                trackPosition.Y,
-                foregroundWidth,
-                Size.Y
-            );
-        }
-        else // LeftToRight
-        {
-            foregroundRect = new Rect(
-                trackPosition.X, // Starts from the left
-                trackPosition.Y,
-                foregroundWidth,
-                Size.Y
-            );
-        }
-
-        if (foregroundRect.Width > 0 && foregroundRect.Height > 0)
-        {
-            DrawStyledRectangle(context, foregroundRect, Style.Foreground);
-        }
-    }
-
-    protected override Vector2 CalculateGrabberPosition()
-    {
-        // Returns the TOP-LEFT position of the grabber.
-        float range = MaxValue - MinValue;
-        float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
-        normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
-
-        if (Direction == HSliderDirection.RightToLeft)
-        {
-            normalizedValue = 1f - normalizedValue;
-        }
-
-        // Calculate the CENTER X of where the grabber should be based on value.
-        float grabberCenterX = trackPosition.X + normalizedValue * Size.X;
-
-        // Calculate the TOP-LEFT X of the grabber.
-        float grabberLeftX = grabberCenterX - GrabberSize.X / 2f;
-
-        // Clamp grabber's top-left X to ensure it doesn't go visually outside the main track area
-        // The grabber should appear to slide along the track.
-        grabberLeftX = Math.Clamp(grabberLeftX, trackPosition.X, trackPosition.X + Size.X - GrabberSize.X);
-
-        float yPos = trackPosition.Y + (Size.Y / 2f) - GrabberSize.Y / 2f; // Center grabber vertically within the track
-        return new Vector2(grabberLeftX, yPos);
-    }
-
-    protected override void UpdateGrabberThemeVisuals()
-    {
-        if (Disabled)
-        {
-            Style.Grabber.Current = Style.Grabber.Disabled;
-            return;
-        }
-
-        if (grabberPressed)
-        {
-            Style.Grabber.Current = Style.Grabber.Pressed;
-        }
-        else if (Focused)
-        {
-            // If focused, use Hover style if also hovered, otherwise Focused style.
-            Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
-        }
-        else if (grabberHovered)
-        {
-            Style.Grabber.Current = Style.Grabber.Hover;
-        }
-        else
-        {
-            Style.Grabber.Current = Style.Grabber.Normal;
-        }
-    }
-
-    protected override void HandleKeyboardNavigation()
-    {
-        // Assumes Focused is true when called
-        if (Input.IsActionPressed("UiLeft"))
-        {
-            Value = ApplyStep(Value - Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1));
-            PlaySound();
-        }
-        else if (Input.IsActionPressed("UiRight"))
-        {
-            Value = ApplyStep(Value + Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1));
-            PlaySound();
-        }
-    }
-}
-</file>
-
-<file path="Source\Nodes\Ui\Slider\HSliderDirection.cs">
-namespace Cherris;
-
-public enum HSliderDirection
-{
-    LeftToRight,
-    RightToLeft
-}
-</file>
-
-<file path="Source\Nodes\Ui\Slider\Slider.cs">
-using Vortice.Mathematics; // For Rect
-
-namespace Cherris;
-
-public abstract class Slider : Control
+public abstract class BaseSlider : Control
 {
     // Add this property
     public bool SuppressValueChangedEvent { get; set; } = false;
@@ -9130,14 +8978,14 @@ public abstract class Slider : Control
         set
         {
             float newValue = ApplyStep(value); // ApplyStep also clamps
-            
+
             if (_value == newValue)
             {
                 return;
             }
 
             _value = newValue;
-            
+
             if (SuppressValueChangedEvent) // Check the flag
             {
                 return;
@@ -9156,7 +9004,7 @@ public abstract class Slider : Control
     protected bool grabberPressed;
     protected bool grabberHovered;
     protected bool trackHovered;
-    protected Vector2 trackPosition;
+    protected Vector2 trackPosition; // Used for input logic bounds, updated in Process()
     protected float trackMin;
     protected float trackMax;
 
@@ -9169,7 +9017,7 @@ public abstract class Slider : Control
 
     public event Action<float>? ValueChanged; // Added event
 
-    public Slider()
+    public BaseSlider()
     {
         Size = new(200, 16);
         Focusable = true;
@@ -9197,7 +9045,7 @@ public abstract class Slider : Control
             return;
         }
 
-        CalculateTrackBounds();
+        CalculateTrackBounds(); // Updates this.trackPosition, trackMin, trackMax for input logic
         UpdateHoverStates();
 
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
@@ -9285,13 +9133,14 @@ public abstract class Slider : Control
 
     private void DrawBackground(DrawingContext context)
     {
-        var bounds = new Rect(trackPosition.X, trackPosition.Y, Size.X, Size.Y);
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
+        var bounds = new Rect(currentGlobalPos.X, currentGlobalPos.Y, Size.X, Size.Y);
         DrawStyledRectangle(context, bounds, Style.Background);
     }
 
     private void DrawGrabber(DrawingContext context)
     {
-        Vector2 grabberPos = CalculateGrabberPosition();
+        Vector2 grabberPos = CalculateGrabberPosition(); // This will use fresh GlobalPosition internally
         ButtonStyle currentGrabberStyle = Style.Grabber.Current;
 
         var bounds = new Rect(grabberPos.X, grabberPos.Y, GrabberSize.X, GrabberSize.Y);
@@ -9302,11 +9151,238 @@ public abstract class Slider : Control
     {
         if (Disabled || !Focusable) return;
 
-        if (trackHovered || grabberHovered)
+        if (trackHovered || grabberHovered) // trackHovered and grabberHovered are from Process()
         {
             Focused = true;
         }
     }
+}
+</file>
+
+<file path="Source\Nodes\Ui\Slider\HSlider.cs">
+using Vortice.Mathematics; // For Rect
+
+namespace Cherris;
+
+public class HSlider : BaseSlider
+{
+    public HSliderDirection Direction { get; set; } = HSliderDirection.LeftToRight;
+
+    protected override void CalculateTrackBounds()
+    {
+        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
+        Vector2 currentGlobalPos = GlobalPosition; // Get current global position for input logic bounds
+        this.trackPosition = currentGlobalPos;
+        trackMin = currentGlobalPos.X;
+        // If the grabber must stay fully within track visually (for mouse interaction):
+        // trackMax = currentGlobalPos.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
+        // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping based on full Size.X range.
+        trackMax = currentGlobalPos.X + Size.X;
+    }
+
+    protected override void UpdateHoverStates()
+    {
+        Vector2 mousePos = GetLocalMousePosition();
+        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle for hover logic consistency
+
+        // Track hover: considers the whole Size of the slider, relative to its top-left (currentTrackPosForHover)
+        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
+                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
+                       mousePos.Y >= currentTrackPosForHover.Y &&
+                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
+
+        // Grabber hover: uses actual grabber bounds. CalculateGrabberPosition will use fresh GlobalPosition.
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition();
+        grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
+                         mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
+                         mousePos.Y >= grabberTopLeftPos.Y &&
+                         mousePos.Y <= grabberTopLeftPos.Y + GrabberSize.Y;
+    }
+
+    protected override void HandleInput()
+    {
+        HandleMousePress();
+        HandleMouseDrag();
+        HandleMouseWheel();
+    }
+
+    private void HandleMousePress()
+    {
+        if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
+        {
+            // Mouse position is already local to the window.
+            // trackHovered uses this.trackPosition which is up-to-date for the current Process() cycle.
+            if (trackHovered)
+            {
+                float localMouseX = GetLocalMousePosition().X;
+                // Clamp mouse X to be within the visual track extents for value calculation,
+                // using this.trackPosition which is consistent with trackHovered check.
+                float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
+                Value = ConvertPositionToValue(clampedMouseXOnTrack); // ConvertPositionToValue also uses this.trackPosition
+                grabberPressed = true;
+                PlaySound();
+            }
+        }
+        else if (Input.IsMouseButtonReleased(MouseButtonCode.Left))
+        {
+            grabberPressed = false;
+        }
+    }
+
+    private void HandleMouseDrag()
+    {
+        if (!grabberPressed) return;
+
+        if (Input.IsMouseButtonReleased(MouseButtonCode.Left))
+        {
+            grabberPressed = false;
+            return;
+        }
+
+        float localMouseX = GetLocalMousePosition().X;
+        // Use this.trackPosition for consistency with press logic.
+        float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
+        Value = ConvertPositionToValue(clampedMouseXOnTrack);
+    }
+
+    private void HandleMouseWheel()
+    {
+        if (!trackHovered && !grabberHovered) return;
+
+        float wheelDelta = Input.GetMouseWheelMovement();
+        if (wheelDelta == 0) return;
+
+        Value = ApplyStep(Value + (wheelDelta * Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1)));
+        PlaySound();
+    }
+
+    protected override float ConvertPositionToValue(float positionOnTrackInLocalSpace)
+    {
+        // positionOnTrackInLocalSpace is a local X coordinate (e.g., mouse.X)
+        // This uses this.trackPosition.X, which is updated in CalculateTrackBounds within the same Process() cycle.
+        float effectiveTrackMin = this.trackPosition.X;
+        float effectiveTrackWidth = Size.X; // Size.X is dynamic and up-to-date
+
+        if (effectiveTrackWidth <= 0) return MinValue;
+
+        float normalized = (positionOnTrackInLocalSpace - effectiveTrackMin) / effectiveTrackWidth;
+        normalized = Math.Clamp(normalized, 0f, 1f);
+
+        if (Direction == HSliderDirection.RightToLeft)
+        {
+            normalized = 1f - normalized;
+        }
+
+        float rawValue = MinValue + normalized * (MaxValue - MinValue);
+        return ApplyStep(rawValue);
+    }
+
+    protected override void DrawForeground(DrawingContext context)
+    {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
+        float range = MaxValue - MinValue;
+        float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
+        fillRatio = Math.Clamp(fillRatio, 0f, 1f);
+
+        float foregroundWidth = Size.X * fillRatio; // Size.X is dynamic
+        Rect foregroundRect;
+
+        if (Direction == HSliderDirection.RightToLeft)
+        {
+            foregroundRect = new Rect(
+                currentGlobalPos.X + Size.X - foregroundWidth,
+                currentGlobalPos.Y,
+                foregroundWidth,
+                Size.Y
+            );
+        }
+        else // LeftToRight
+        {
+            foregroundRect = new Rect(
+                currentGlobalPos.X,
+                currentGlobalPos.Y,
+                foregroundWidth,
+                Size.Y
+            );
+        }
+
+        if (foregroundRect.Width > 0 && foregroundRect.Height > 0)
+        {
+            DrawStyledRectangle(context, foregroundRect, Style.Foreground);
+        }
+    }
+
+    protected override Vector2 CalculateGrabberPosition()
+    {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
+        float range = MaxValue - MinValue;
+        float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
+        normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
+
+        if (Direction == HSliderDirection.RightToLeft)
+        {
+            normalizedValue = 1f - normalizedValue;
+        }
+
+        float grabberCenterX = currentGlobalPos.X + normalizedValue * Size.X;
+        float grabberLeftX = grabberCenterX - GrabberSize.X / 2f;
+        grabberLeftX = Math.Clamp(grabberLeftX, currentGlobalPos.X, currentGlobalPos.X + Size.X - GrabberSize.X);
+
+        float yPos = currentGlobalPos.Y + (Size.Y / 2f) - GrabberSize.Y / 2f;
+        return new Vector2(grabberLeftX, yPos);
+    }
+
+    protected override void UpdateGrabberThemeVisuals()
+    {
+        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
+        // So, their visual state update in relation to theme will be based on the Process() cycle.
+        if (Disabled)
+        {
+            Style.Grabber.Current = Style.Grabber.Disabled;
+            return;
+        }
+
+        if (grabberPressed)
+        {
+            Style.Grabber.Current = Style.Grabber.Pressed;
+        }
+        else if (Focused)
+        {
+            Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
+        }
+        else if (grabberHovered)
+        {
+            Style.Grabber.Current = Style.Grabber.Hover;
+        }
+        else
+        {
+            Style.Grabber.Current = Style.Grabber.Normal;
+        }
+    }
+
+    protected override void HandleKeyboardNavigation()
+    {
+        if (Input.IsActionPressed("UiLeft"))
+        {
+            Value = ApplyStep(Value - Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1));
+            PlaySound();
+        }
+        else if (Input.IsActionPressed("UiRight"))
+        {
+            Value = ApplyStep(Value + Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1));
+            PlaySound();
+        }
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\Slider\HSliderDirection.cs">
+namespace Cherris;
+
+public enum HSliderDirection
+{
+    LeftToRight,
+    RightToLeft
 }
 </file>
 
@@ -9334,36 +9410,42 @@ using Vortice.Mathematics; // For Rect
 
 namespace Cherris;
 
-public class VSlider : Slider
+public class VSlider : BaseSlider
 {
     public VSliderDirection Direction { get; set; } = VSliderDirection.TopToBottom;
 
-    public VSlider() // VSlider specific defaults
+    public VSlider()
     {
-        Size = new(16, 200); // Default tall and thin
-        GrabberSize = new(24, 12); // Wider than tall for VSlider grabber
+        Size = new(16, 200);
+        GrabberSize = new(24, 12);
     }
     protected override void CalculateTrackBounds()
     {
-        trackPosition = GlobalPosition - Origin;
-        trackMin = trackPosition.Y;
-        trackMax = trackPosition.Y + Size.Y;
+        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
+        Vector2 currentGlobalPos = GlobalPosition - Origin; // VSlider uses Origin in base.Process -> Clickable -> Node2D
+                                                            // However, Slider.DrawBackground uses GlobalPosition directly.
+                                                            // For consistency with how HSlider works and drawing, let's use GlobalPosition.
+        currentGlobalPos = GlobalPosition; // Use raw GlobalPosition for track bounds, consistent with Slider.DrawBackground
+        this.trackPosition = currentGlobalPos;
+        trackMin = currentGlobalPos.Y;
+        trackMax = currentGlobalPos.Y + Size.Y;
     }
 
     protected override void UpdateHoverStates()
     {
         Vector2 mousePos = GetLocalMousePosition();
+        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle
 
-        trackHovered = mousePos.X >= trackPosition.X &&
-                       mousePos.X <= trackPosition.X + Size.X &&
-                       mousePos.Y >= trackPosition.Y &&
-                       mousePos.Y <= trackPosition.Y + Size.Y;
+        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
+                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
+                       mousePos.Y >= currentTrackPosForHover.Y &&
+                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
 
-        Vector2 grabberCenterPos = CalculateGrabberPosition();
-        grabberHovered = mousePos.X >= grabberCenterPos.X &&
-                         mousePos.X <= grabberCenterPos.X + GrabberSize.X &&
-                         mousePos.Y >= grabberCenterPos.Y &&
-                         mousePos.Y <= grabberCenterPos.Y + GrabberSize.Y;
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // Will use fresh GlobalPosition
+        grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
+                         mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
+                         mousePos.Y >= grabberTopLeftPos.Y &&
+                         mousePos.Y <= grabberTopLeftPos.Y + GrabberSize.Y;
     }
 
     protected override void HandleInput()
@@ -9377,10 +9459,11 @@ public class VSlider : Slider
     {
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
-            if (trackHovered)
+            if (trackHovered) // Uses this.trackPosition consistent with current Process() cycle
             {
-                float clampedMouseY = Math.Clamp(GetLocalMousePosition().Y, trackPosition.Y, trackPosition.Y + Size.Y);
-                Value = ConvertPositionToValue(clampedMouseY);
+                float localMouseY = GetLocalMousePosition().Y;
+                float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
+                Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
                 grabberPressed = true;
                 PlaySound();
             }
@@ -9400,9 +9483,9 @@ public class VSlider : Slider
             grabberPressed = false;
             return;
         }
-
-        float clampedMouseY = Math.Clamp(GetLocalMousePosition().Y, trackPosition.Y, trackPosition.Y + Size.Y);
-        Value = ConvertPositionToValue(clampedMouseY);
+        float localMouseY = GetLocalMousePosition().Y;
+        float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
+        Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
     }
 
     private void HandleMouseWheel()
@@ -9412,27 +9495,25 @@ public class VSlider : Slider
         float wheelDelta = Input.GetMouseWheelMovement();
         if (wheelDelta == 0) return;
 
-        // Positive wheelDelta for VSlider usually means increase value (scroll "down" the list, "up" the value)
         Value = ApplyStep(Value + (wheelDelta * Step * (Direction == VSliderDirection.TopToBottom ? 1 : -1)));
         PlaySound();
     }
 
     protected override float ConvertPositionToValue(float positionOnTrack)
     {
-        float effectiveTrackMin = trackPosition.Y;
-        float effectiveTrackHeight = Size.Y;
+        // Uses this.trackPosition.Y, which is updated in CalculateTrackBounds within the same Process() cycle.
+        float effectiveTrackMin = this.trackPosition.Y;
+        float effectiveTrackHeight = Size.Y; // Size.Y is dynamic
 
         if (effectiveTrackHeight <= 0) return MinValue;
 
         float normalized = (positionOnTrack - effectiveTrackMin) / effectiveTrackHeight;
         normalized = Math.Clamp(normalized, 0f, 1f);
 
-        if (Direction == VSliderDirection.BottomToTop) // For BottomToTop, higher Y means lower value
+        if (Direction == VSliderDirection.BottomToTop)
         {
             normalized = 1f - normalized;
         }
-        // For TopToBottom, higher Y means higher value (already handled by default normalization)
-
 
         float rawValue = MinValue + normalized * (MaxValue - MinValue);
         return ApplyStep(rawValue);
@@ -9440,18 +9521,19 @@ public class VSlider : Slider
 
     protected override void DrawForeground(DrawingContext context)
     {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
         float range = MaxValue - MinValue;
         float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         fillRatio = Math.Clamp(fillRatio, 0f, 1f);
 
-        float foregroundHeight = Size.Y * fillRatio;
+        float foregroundHeight = Size.Y * fillRatio; // Size.Y is dynamic
         Rect foregroundRect;
 
         if (Direction == VSliderDirection.BottomToTop)
         {
             foregroundRect = new Rect(
-                trackPosition.X,
-                trackPosition.Y + Size.Y - foregroundHeight,
+                currentGlobalPos.X,
+                currentGlobalPos.Y + Size.Y - foregroundHeight,
                 Size.X,
                 foregroundHeight
             );
@@ -9459,8 +9541,8 @@ public class VSlider : Slider
         else // TopToBottom
         {
             foregroundRect = new Rect(
-                trackPosition.X,
-                trackPosition.Y,
+                currentGlobalPos.X,
+                currentGlobalPos.Y,
                 Size.X,
                 foregroundHeight
             );
@@ -9474,6 +9556,7 @@ public class VSlider : Slider
 
     protected override Vector2 CalculateGrabberPosition()
     {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -9483,17 +9566,17 @@ public class VSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        float grabberCenterY = trackPosition.Y + normalizedValue * Size.Y;
+        float grabberCenterY = currentGlobalPos.Y + normalizedValue * Size.Y;
         float grabberTopY = grabberCenterY - GrabberSize.Y / 2f;
+        grabberTopY = Math.Clamp(grabberTopY, currentGlobalPos.Y, currentGlobalPos.Y + Size.Y - GrabberSize.Y);
 
-        grabberTopY = Math.Clamp(grabberTopY, trackPosition.Y, trackPosition.Y + Size.Y - GrabberSize.Y);
-
-        float xPos = trackPosition.X + (Size.X / 2f) - GrabberSize.X / 2f; // Center grabber horizontally
+        float xPos = currentGlobalPos.X + (Size.X / 2f) - GrabberSize.X / 2f;
         return new Vector2(xPos, grabberTopY);
     }
 
     protected override void UpdateGrabberThemeVisuals()
     {
+        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
         if (Disabled)
         {
             Style.Grabber.Current = Style.Grabber.Disabled;
@@ -9520,14 +9603,14 @@ public class VSlider : Slider
 
     protected override void HandleKeyboardNavigation()
     {
-        if (Input.IsActionPressed("UiUp")) // Up arrow typically increases value for vertical controls
+        if (Input.IsActionPressed("UiUp"))
         {
-            Value = ApplyStep(Value + Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1)); // Inverted logic for TTB
+            Value = ApplyStep(Value + Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1));
             PlaySound();
         }
-        else if (Input.IsActionPressed("UiDown")) // Down arrow decreases value
+        else if (Input.IsActionPressed("UiDown"))
         {
-            Value = ApplyStep(Value - Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1)); // Inverted logic for TTB
+            Value = ApplyStep(Value - Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1));
             PlaySound();
         }
     }

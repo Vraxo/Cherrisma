@@ -2,7 +2,7 @@
 
 namespace Cherris;
 
-public class VSlider : Slider
+public class VSlider : BaseSlider
 {
     public VSliderDirection Direction { get; set; } = VSliderDirection.TopToBottom;
 
