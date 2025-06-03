@@ -6,32 +6,38 @@ public class VSlider : Slider
 {
     public VSliderDirection Direction { get; set; } = VSliderDirection.TopToBottom;
 
-    public VSlider() // VSlider specific defaults
+    public VSlider()
     {
-        Size = new(16, 200); // Default tall and thin
-        GrabberSize = new(24, 12); // Wider than tall for VSlider grabber
+        Size = new(16, 200);
+        GrabberSize = new(24, 12);
     }
     protected override void CalculateTrackBounds()
     {
-        trackPosition = GlobalPosition - Origin;
-        trackMin = trackPosition.Y;
-        trackMax = trackPosition.Y + Size.Y;
+        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
+        Vector2 currentGlobalPos = GlobalPosition - Origin; // VSlider uses Origin in base.Process -> Clickable -> Node2D
+                                                            // However, Slider.DrawBackground uses GlobalPosition directly.
+                                                            // For consistency with how HSlider works and drawing, let's use GlobalPosition.
+        currentGlobalPos = GlobalPosition; // Use raw GlobalPosition for track bounds, consistent with Slider.DrawBackground
+        this.trackPosition = currentGlobalPos;
+        trackMin = currentGlobalPos.Y;
+        trackMax = currentGlobalPos.Y + Size.Y;
     }
 
     protected override void UpdateHoverStates()
     {
         Vector2 mousePos = GetLocalMousePosition();
+        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle
 
-        trackHovered = mousePos.X >= trackPosition.X &&
-                       mousePos.X <= trackPosition.X + Size.X &&
-                       mousePos.Y >= trackPosition.Y &&
-                       mousePos.Y <= trackPosition.Y + Size.Y;
+        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
+                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
+                       mousePos.Y >= currentTrackPosForHover.Y &&
+                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
 
-        Vector2 grabberCenterPos = CalculateGrabberPosition();
-        grabberHovered = mousePos.X >= grabberCenterPos.X &&
-                         mousePos.X <= grabberCenterPos.X + GrabberSize.X &&
-                         mousePos.Y >= grabberCenterPos.Y &&
-                         mousePos.Y <= grabberCenterPos.Y + GrabberSize.Y;
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // Will use fresh GlobalPosition
+        grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
+                         mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
+                         mousePos.Y >= grabberTopLeftPos.Y &&
+                         mousePos.Y <= grabberTopLeftPos.Y + GrabberSize.Y;
     }
 
     protected override void HandleInput()
@@ -45,10 +51,11 @@ public class VSlider : Slider
     {
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
-            if (trackHovered)
+            if (trackHovered) // Uses this.trackPosition consistent with current Process() cycle
             {
-                float clampedMouseY = Math.Clamp(GetLocalMousePosition().Y, trackPosition.Y, trackPosition.Y + Size.Y);
-                Value = ConvertPositionToValue(clampedMouseY);
+                float localMouseY = GetLocalMousePosition().Y;
+                float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
+                Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
                 grabberPressed = true;
                 PlaySound();
             }
@@ -68,9 +75,9 @@ public class VSlider : Slider
             grabberPressed = false;
             return;
         }
-
-        float clampedMouseY = Math.Clamp(GetLocalMousePosition().Y, trackPosition.Y, trackPosition.Y + Size.Y);
-        Value = ConvertPositionToValue(clampedMouseY);
+        float localMouseY = GetLocalMousePosition().Y;
+        float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
+        Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
     }
 
     private void HandleMouseWheel()
@@ -80,27 +87,25 @@ public class VSlider : Slider
         float wheelDelta = Input.GetMouseWheelMovement();
         if (wheelDelta == 0) return;
 
-        // Positive wheelDelta for VSlider usually means increase value (scroll "down" the list, "up" the value)
         Value = ApplyStep(Value + (wheelDelta * Step * (Direction == VSliderDirection.TopToBottom ? 1 : -1)));
         PlaySound();
     }
 
     protected override float ConvertPositionToValue(float positionOnTrack)
     {
-        float effectiveTrackMin = trackPosition.Y;
-        float effectiveTrackHeight = Size.Y;
+        // Uses this.trackPosition.Y, which is updated in CalculateTrackBounds within the same Process() cycle.
+        float effectiveTrackMin = this.trackPosition.Y;
+        float effectiveTrackHeight = Size.Y; // Size.Y is dynamic
 
         if (effectiveTrackHeight <= 0) return MinValue;
 
         float normalized = (positionOnTrack - effectiveTrackMin) / effectiveTrackHeight;
         normalized = Math.Clamp(normalized, 0f, 1f);
 
-        if (Direction == VSliderDirection.BottomToTop) // For BottomToTop, higher Y means lower value
+        if (Direction == VSliderDirection.BottomToTop)
         {
             normalized = 1f - normalized;
         }
-        // For TopToBottom, higher Y means higher value (already handled by default normalization)
-
 
         float rawValue = MinValue + normalized * (MaxValue - MinValue);
         return ApplyStep(rawValue);
@@ -108,18 +113,19 @@ public class VSlider : Slider
 
     protected override void DrawForeground(DrawingContext context)
     {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
         float range = MaxValue - MinValue;
         float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         fillRatio = Math.Clamp(fillRatio, 0f, 1f);
 
-        float foregroundHeight = Size.Y * fillRatio;
+        float foregroundHeight = Size.Y * fillRatio; // Size.Y is dynamic
         Rect foregroundRect;
 
         if (Direction == VSliderDirection.BottomToTop)
         {
             foregroundRect = new Rect(
-                trackPosition.X,
-                trackPosition.Y + Size.Y - foregroundHeight,
+                currentGlobalPos.X,
+                currentGlobalPos.Y + Size.Y - foregroundHeight,
                 Size.X,
                 foregroundHeight
             );
@@ -127,8 +133,8 @@ public class VSlider : Slider
         else // TopToBottom
         {
             foregroundRect = new Rect(
-                trackPosition.X,
-                trackPosition.Y,
+                currentGlobalPos.X,
+                currentGlobalPos.Y,
                 Size.X,
                 foregroundHeight
             );
@@ -142,6 +148,7 @@ public class VSlider : Slider
 
     protected override Vector2 CalculateGrabberPosition()
     {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -151,17 +158,17 @@ public class VSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        float grabberCenterY = trackPosition.Y + normalizedValue * Size.Y;
+        float grabberCenterY = currentGlobalPos.Y + normalizedValue * Size.Y;
         float grabberTopY = grabberCenterY - GrabberSize.Y / 2f;
+        grabberTopY = Math.Clamp(grabberTopY, currentGlobalPos.Y, currentGlobalPos.Y + Size.Y - GrabberSize.Y);
 
-        grabberTopY = Math.Clamp(grabberTopY, trackPosition.Y, trackPosition.Y + Size.Y - GrabberSize.Y);
-
-        float xPos = trackPosition.X + (Size.X / 2f) - GrabberSize.X / 2f; // Center grabber horizontally
+        float xPos = currentGlobalPos.X + (Size.X / 2f) - GrabberSize.X / 2f;
         return new Vector2(xPos, grabberTopY);
     }
 
     protected override void UpdateGrabberThemeVisuals()
     {
+        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
         if (Disabled)
         {
             Style.Grabber.Current = Style.Grabber.Disabled;
@@ -188,14 +195,14 @@ public class VSlider : Slider
 
     protected override void HandleKeyboardNavigation()
     {
-        if (Input.IsActionPressed("UiUp")) // Up arrow typically increases value for vertical controls
+        if (Input.IsActionPressed("UiUp"))
         {
-            Value = ApplyStep(Value + Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1)); // Inverted logic for TTB
+            Value = ApplyStep(Value + Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1));
             PlaySound();
         }
-        else if (Input.IsActionPressed("UiDown")) // Down arrow decreases value
+        else if (Input.IsActionPressed("UiDown"))
         {
-            Value = ApplyStep(Value - Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1)); // Inverted logic for TTB
+            Value = ApplyStep(Value - Step * (Direction == VSliderDirection.TopToBottom ? -1 : 1));
             PlaySound();
         }
     }

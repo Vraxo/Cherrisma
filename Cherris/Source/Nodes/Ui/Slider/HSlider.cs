@@ -8,33 +8,29 @@ public class HSlider : Slider
 
     protected override void CalculateTrackBounds()
     {
-        // trackPosition is the top-left corner of the drawable slider area.
-        // Since GlobalPosition is now the top-left of the Node2D's bounding box,
-        // trackPosition can be set directly to GlobalPosition.
-        trackPosition = GlobalPosition;
-
-        // trackMin and trackMax are used for converting mouse position to slider value.
-        // They should represent the clickable/effective range of the track itself.
-        trackMin = trackPosition.X;
-        // If the grabber's center can align with the track ends:
-        trackMax = trackPosition.X + Size.X;
+        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
+        Vector2 currentGlobalPos = GlobalPosition; // Get current global position for input logic bounds
+        this.trackPosition = currentGlobalPos;
+        trackMin = currentGlobalPos.X;
         // If the grabber must stay fully within track visually (for mouse interaction):
-        // trackMax = trackPosition.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
+        // trackMax = currentGlobalPos.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
         // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping based on full Size.X range.
+        trackMax = currentGlobalPos.X + Size.X;
     }
 
     protected override void UpdateHoverStates()
     {
         Vector2 mousePos = GetLocalMousePosition();
+        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle for hover logic consistency
 
-        // Track hover: considers the whole Size of the slider, relative to its top-left (trackPosition)
-        trackHovered = mousePos.X >= trackPosition.X &&
-                       mousePos.X <= trackPosition.X + Size.X &&
-                       mousePos.Y >= trackPosition.Y &&
-                       mousePos.Y <= trackPosition.Y + Size.Y;
+        // Track hover: considers the whole Size of the slider, relative to its top-left (currentTrackPosForHover)
+        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
+                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
+                       mousePos.Y >= currentTrackPosForHover.Y &&
+                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
 
-        // Grabber hover: uses actual grabber bounds
-        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // This is top-left of grabber
+        // Grabber hover: uses actual grabber bounds. CalculateGrabberPosition will use fresh GlobalPosition.
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition();
         grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
                          mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
                          mousePos.Y >= grabberTopLeftPos.Y &&
@@ -53,15 +49,15 @@ public class HSlider : Slider
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
             // Mouse position is already local to the window.
-            // We need to check if it's within the slider's bounds (trackPosition to trackPosition + Size).
-            float localMouseX = GetLocalMousePosition().X;
-
-            if (trackHovered) // If clicked anywhere on the track (trackHovered already checks this)
+            // trackHovered uses this.trackPosition which is up-to-date for the current Process() cycle.
+            if (trackHovered)
             {
-                // Clamp mouse X to be within the visual track extents for value calculation
-                float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
-                Value = ConvertPositionToValue(clampedMouseXOnTrack);
-                grabberPressed = true; // Start "dragging" immediately
+                float localMouseX = GetLocalMousePosition().X;
+                // Clamp mouse X to be within the visual track extents for value calculation,
+                // using this.trackPosition which is consistent with trackHovered check.
+                float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
+                Value = ConvertPositionToValue(clampedMouseXOnTrack); // ConvertPositionToValue also uses this.trackPosition
+                grabberPressed = true;
                 PlaySound();
             }
         }
@@ -75,21 +71,21 @@ public class HSlider : Slider
     {
         if (!grabberPressed) return;
 
-        if (Input.IsMouseButtonReleased(MouseButtonCode.Left)) // Check for release during drag
+        if (Input.IsMouseButtonReleased(MouseButtonCode.Left))
         {
             grabberPressed = false;
             return;
         }
 
         float localMouseX = GetLocalMousePosition().X;
-        // Clamp mouse X to be within the visual track extents for value calculation
-        float clampedMouseXOnTrack = Math.Clamp(localMouseX, trackPosition.X, trackPosition.X + Size.X);
+        // Use this.trackPosition for consistency with press logic.
+        float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
         Value = ConvertPositionToValue(clampedMouseXOnTrack);
     }
 
     private void HandleMouseWheel()
     {
-        if (!trackHovered && !grabberHovered) return; // Only respond if mouse is over slider
+        if (!trackHovered && !grabberHovered) return;
 
         float wheelDelta = Input.GetMouseWheelMovement();
         if (wheelDelta == 0) return;
@@ -101,13 +97,12 @@ public class HSlider : Slider
     protected override float ConvertPositionToValue(float positionOnTrackInLocalSpace)
     {
         // positionOnTrackInLocalSpace is a local X coordinate (e.g., mouse.X)
-        // effectiveTrackMin is the track's starting X coordinate (trackPosition.X)
-        float effectiveTrackMin = trackPosition.X;
-        float effectiveTrackWidth = Size.X;
+        // This uses this.trackPosition.X, which is updated in CalculateTrackBounds within the same Process() cycle.
+        float effectiveTrackMin = this.trackPosition.X;
+        float effectiveTrackWidth = Size.X; // Size.X is dynamic and up-to-date
 
         if (effectiveTrackWidth <= 0) return MinValue;
 
-        // Normalize the position relative to the track's start and width
         float normalized = (positionOnTrackInLocalSpace - effectiveTrackMin) / effectiveTrackWidth;
         normalized = Math.Clamp(normalized, 0f, 1f);
 
@@ -122,19 +117,19 @@ public class HSlider : Slider
 
     protected override void DrawForeground(DrawingContext context)
     {
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
         float range = MaxValue - MinValue;
         float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         fillRatio = Math.Clamp(fillRatio, 0f, 1f);
 
-        float foregroundWidth = Size.X * fillRatio;
+        float foregroundWidth = Size.X * fillRatio; // Size.X is dynamic
         Rect foregroundRect;
 
-        // trackPosition is the top-left of the slider.
         if (Direction == HSliderDirection.RightToLeft)
         {
             foregroundRect = new Rect(
-                trackPosition.X + Size.X - foregroundWidth, // Starts from the right and extends left
-                trackPosition.Y,
+                currentGlobalPos.X + Size.X - foregroundWidth,
+                currentGlobalPos.Y,
                 foregroundWidth,
                 Size.Y
             );
@@ -142,8 +137,8 @@ public class HSlider : Slider
         else // LeftToRight
         {
             foregroundRect = new Rect(
-                trackPosition.X, // Starts from the left
-                trackPosition.Y,
+                currentGlobalPos.X,
+                currentGlobalPos.Y,
                 foregroundWidth,
                 Size.Y
             );
@@ -157,7 +152,7 @@ public class HSlider : Slider
 
     protected override Vector2 CalculateGrabberPosition()
     {
-        // Returns the TOP-LEFT position of the grabber.
+        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -167,22 +162,18 @@ public class HSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        // Calculate the CENTER X of where the grabber should be based on value.
-        float grabberCenterX = trackPosition.X + normalizedValue * Size.X;
-
-        // Calculate the TOP-LEFT X of the grabber.
+        float grabberCenterX = currentGlobalPos.X + normalizedValue * Size.X;
         float grabberLeftX = grabberCenterX - GrabberSize.X / 2f;
+        grabberLeftX = Math.Clamp(grabberLeftX, currentGlobalPos.X, currentGlobalPos.X + Size.X - GrabberSize.X);
 
-        // Clamp grabber's top-left X to ensure it doesn't go visually outside the main track area
-        // The grabber should appear to slide along the track.
-        grabberLeftX = Math.Clamp(grabberLeftX, trackPosition.X, trackPosition.X + Size.X - GrabberSize.X);
-
-        float yPos = trackPosition.Y + (Size.Y / 2f) - GrabberSize.Y / 2f; // Center grabber vertically within the track
+        float yPos = currentGlobalPos.Y + (Size.Y / 2f) - GrabberSize.Y / 2f;
         return new Vector2(grabberLeftX, yPos);
     }
 
     protected override void UpdateGrabberThemeVisuals()
     {
+        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
+        // So, their visual state update in relation to theme will be based on the Process() cycle.
         if (Disabled)
         {
             Style.Grabber.Current = Style.Grabber.Disabled;
@@ -195,7 +186,6 @@ public class HSlider : Slider
         }
         else if (Focused)
         {
-            // If focused, use Hover style if also hovered, otherwise Focused style.
             Style.Grabber.Current = grabberHovered ? Style.Grabber.Hover : Style.Grabber.Focused;
         }
         else if (grabberHovered)
@@ -210,7 +200,6 @@ public class HSlider : Slider
 
     protected override void HandleKeyboardNavigation()
     {
-        // Assumes Focused is true when called
         if (Input.IsActionPressed("UiLeft"))
         {
             Value = ApplyStep(Value - Step * (Direction == HSliderDirection.LeftToRight ? 1 : -1));
