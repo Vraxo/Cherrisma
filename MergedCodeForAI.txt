@@ -134,7 +134,7 @@ public class ButtonStyle : BoxStyle
     public Font? Font { get; set; } = null;
     public Color4 FontColor { get; set; } = DefaultTheme.Text;
 
-    public string FontName { get; set; } = "ComicSans";
+    public string FontName { get; set; } = "Roboto Mono";
     public float FontSize { get; set; } = 16.0f;
     public FontWeight FontWeight { get; set; } = FontWeight.Normal;
     public FontStyle FontStyle { get; set; } = FontStyle.Normal;
@@ -8177,7 +8177,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = true; // New property to control auto-scroll
+    public bool AutoScrollToShowFullText { get; set; } = false; // New property to control auto-scroll
 
     // TextStartIndex: The index of the first character in `_text` that is visible.
     // This is used for horizontal scrolling.
@@ -8230,6 +8230,7 @@ public partial class LineEdit : Button
 
         // 3. Set the problematic test text. Now _caret will be initialized.
         Text = "Type here...";
+        //PlaceholderText = "Type my boi";
 
         // 4. Configure styles.
         // LineEdit inherits Styles from Button (Control).

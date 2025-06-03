@@ -1,23 +1,15 @@
-﻿using Cherris;
-using System.Globalization;
+﻿using System.Globalization;
+using SharpGen.Runtime;
 using Vortice.DirectWrite;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using Vortice.DirectWrite;
-using SharpGen.Runtime; // Required for Result
 
 namespace Cherris;
 
 public partial class LineEdit : Button
 {
-    #region [ - - - Properties & Fields - - - ]
-
-    public static readonly Vector2 DefaultLineEditSize = new(200, 28); // Adjusted default size
+    public static readonly Vector2 DefaultLineEditSize = new(200, 28);
 
     private string _text = "";
-    public new string Text // Hides Button.Text
+    public new string Text
     {
         get => _text;
         set
@@ -25,14 +17,14 @@ public partial class LineEdit : Button
             if (_text == value) return;
 
             string oldText = _text;
-            _text = value ?? ""; // Ensure not null
+            _text = value ?? "";
 
             if (_text.Length > MaxCharacters)
             {
                 _text = _text.Substring(0, MaxCharacters);
             }
 
-            UpdateCaretDisplayPositionAndStartIndex(); // Update caret based on new text
+            UpdateCaretDisplayPositionAndStartIndex();
             TextChanged?.Invoke(this, _text);
             if (oldText.Length == 0 && _text.Length > 0)
             {
@@ -46,10 +38,9 @@ public partial class LineEdit : Button
     }
 
     public string PlaceholderText { get; set; } = "";
-    public Vector2 TextOrigin { get; set; } = new(6, 0); // Padding from left for text start
+    public Vector2 TextOrigin { get; set; } = new(6, 0);
     public int MaxCharacters { get; set; } = int.MaxValue;
-    // MinCharacters not directly enforced during typing, usually for validation on confirm
-    public List<char> ValidCharacters { get; set; } = []; // If empty, all chars allowed
+    public List<char> ValidCharacters { get; set; } = [];
 
     public bool Selected
     {
@@ -58,36 +49,32 @@ public partial class LineEdit : Button
         {
             if (field == value) return;
             field = value;
-            _caret.Visible = field && Editable; // Caret visible only if LineEdit is selected and editable
-            if (!field) _caret.CaretDisplayPositionX = 0; // Reset caret display pos when deselected
+            _caret.Visible = field && Editable;
+            if (!field) _caret.CaretDisplayPositionX = 0;
         }
     } = false;
 
     public bool Editable { get; set; } = true;
-    public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
+    public bool ExpandWidthToText { get; set; } = false;
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = true; // New property to control auto-scroll
+    public bool AutoScrollToShowFullText { get; set; } = false;
 
-    // TextStartIndex: The index of the first character in `_text` that is visible.
-    // This is used for horizontal scrolling.
     public int TextStartIndex { get; internal set; } = 0;
 
-    // CaretLogicalPosition: The caret's position as an index within the full `_text` string.
     internal int CaretLogicalPosition { get; set; } = 0;
-
 
     public event EventHandler? FirstCharacterEntered;
     public event EventHandler? Cleared;
     public event EventHandler<string>? TextChanged;
     public event EventHandler<string>? Confirmed;
 
-    protected Cherris.LineEdit.Caret _caret;
-    private readonly Cherris.LineEdit.TextDisplayer _textDisplayer;
-    private readonly Cherris.LineEdit.PlaceholderTextDisplayer _placeholderTextDisplayer;
+    private readonly Caret _caret;
+    private readonly TextDisplayer _textDisplayer;
+    private readonly PlaceholderTextDisplayer _placeholderTextDisplayer;
 
     private const float BackspaceDelay = 0.5f;
-    private const float BackspaceSpeed = 0.05f; // Time between repeats
+    private const float BackspaceSpeed = 0.05f;
     private const float UndoDelay = 0.5f;
     private const float UndoSpeed = 0.05f;
 
@@ -97,51 +84,40 @@ public partial class LineEdit : Button
     private bool _undoHeld = false;
     private bool _backspaceCtrlHeld = false;
 
-    private Stack<LineEditState> _undoStack = new();
-    private Stack<LineEditState> _redoStack = new();
+    private readonly Stack<LineEditState> _undoStack = new();
+    private readonly Stack<LineEditState> _redoStack = new();
     private const int HistoryLimit = 50;
 
-    private char? _pendingCharInput = null; // For character input
-
-    #endregion
+    private char? _pendingCharInput = null;
 
     public LineEdit()
     {
-        // 1. Initialize core members that other parts of the constructor or property setters might depend on.
-        _caret = new Cherris.LineEdit.Caret(this);
-        _textDisplayer = new Cherris.LineEdit.TextDisplayer(this);
-        _placeholderTextDisplayer = new Cherris.LineEdit.PlaceholderTextDisplayer(this);
+        _caret = new Caret(this);
+        _textDisplayer = new TextDisplayer(this);
+        _placeholderTextDisplayer = new PlaceholderTextDisplayer(this);
 
-        // 2. Set default values for properties. Order might matter if setters have side effects.
-        Visible = true; // Explicitly set visible, though default for VisualItem is true.
-        Size = DefaultLineEditSize; // Use specific default for LineEdit
-        TextHAlignment = HAlignment.Left; // Text in button usually centered, LineEdit is left
+        Visible = true;
+        Size = DefaultLineEditSize;
+        TextHAlignment = HAlignment.Left;
         TextVAlignment = VAlignment.Center;
 
-        // 3. Set the problematic test text. Now _caret will be initialized.
         Text = "Type here...";
 
-        // 4. Configure styles.
-        // LineEdit inherits Styles from Button (Control).
-        // We can customize its default appearance here or expect it from YAML.
         Styles.Normal.BorderLength = 1;
-        Styles.Focused.BorderLength = 1; // Keep border for focus
-        Styles.Focused.BorderColor = DefaultTheme.FocusBorder; // Standard focus color
+        Styles.Focused.BorderLength = 1;
+        Styles.Focused.BorderColor = DefaultTheme.FocusBorder;
 
-        // 5. Subscribe to events.
-        // Subscribe to events from Control/Button
         FocusChanged += OnFocusChangedHandler;
-        LeftClicked += OnLeftClickedHandler; // From Button
-        ClickedOutside += OnClickedOutsideHandler; // From Control
-        LayerChanged += OnLayerChangedHandler; // From VisualItem
-        SizeChanged += OnSizeChangedHandler; // From Node2D
+        LeftClicked += OnLeftClickedHandler;
+        ClickedOutside += OnClickedOutsideHandler;
+        LayerChanged += OnLayerChangedHandler;
+        SizeChanged += OnSizeChangedHandler;
     }
 
     public override void Process()
     {
-        base.Process(); // Handles Control/Button related processing (focus, hover, style updates)
-
-        CaptureCharInput(); // Poll for character input
+        base.Process();
+        CaptureCharInput();
 
         if (Editable && Selected)
         {
@@ -153,22 +129,19 @@ public partial class LineEdit : Button
             HandleUndoRedo();
             ConfirmOnEnter();
         }
-        _caret.UpdateLogic(); // Update caret logic (input, blinking)
-        // Text displayers don't need a process, their GetTextToDisplay is called in Draw
+        _caret.UpdateLogic();
         UpdateSizeToFitTextIfEnabled();
     }
 
     public override void Draw(DrawingContext context)
     {
-        base.Draw(context); // Draws the button background/border
-
-        // Placeholder and TextDisplayers draw text *inside* the button area
+        base.Draw(context);
         _placeholderTextDisplayer.Draw(context);
         _textDisplayer.Draw(context);
 
         if (Selected && Editable)
         {
-            _caret.Visible = true; // Ensure caret is marked visible before its draw call
+            _caret.Visible = true;
             _caret.Draw(context);
         }
         else
@@ -179,59 +152,48 @@ public partial class LineEdit : Button
 
     private void CaptureCharInput()
     {
-        // This is a placeholder. Proper implementation requires WM_CHAR handling in MainAppWindow
-        // and a way for Input class to provide these characters.
-        // For now, we'll simulate it for a few keys if they are pressed.
-        if (_pendingCharInput == null) // Process one char per frame for simplicity
+        if (_pendingCharInput == null)
         {
-            _pendingCharInput = Input.ConsumeNextTypedChar(); // ASSUMED METHOD on Input class
+            _pendingCharInput = Input.ConsumeNextTypedChar();
         }
     }
 
-    protected override void OnEnterPressed() // Called by Button base class if Enter is pressed while focused
+    protected override void OnEnterPressed()
     {
         if (Editable)
         {
             ConfirmAction();
         }
-        // Don't call base.OnEnterPressed if we handle enter for confirmation,
-        // as button's default might be to invoke LeftClicked.
     }
 
-    private void OnFocusChangedHandler(Control control) // From Control
+    private void OnFocusChangedHandler(Control control)
     {
         Selected = control.Focused;
     }
 
-    private void OnLeftClickedHandler() // From Button
+    private void OnLeftClickedHandler()
     {
         if (Editable)
         {
             Selected = true;
-            // Caret position is handled by Caret's mouse input logic
         }
     }
 
-    private void OnClickedOutsideHandler(Control control) // From Control
+    private void OnClickedOutsideHandler(Control control)
     {
         if (Selected)
         {
             Selected = false;
-            // Optionally, confirm text here if needed: ConfirmAction();
         }
     }
 
     private void OnLayerChangedHandler(VisualItem sender, int layer)
     {
-        // If sub-components need layer awareness, set their Layer property.
-        // _caret.Layer = layer + 1; // Example, if caret draws independently.
-        // For now, LineEdit controls their drawing order.
     }
 
     private void OnSizeChangedHandler(object? sender, Vector2 newSize)
     {
-        // When size changes, re-evaluate visible text range and caret
-        TextStartIndex = 0; // Could be smarter, but reset is safe
+        TextStartIndex = 0;
         UpdateCaretDisplayPositionAndStartIndex();
     }
 
@@ -243,11 +205,10 @@ public partial class LineEdit : Button
         if (owningWindow == null || owningWindow.DWriteFactory == null) return;
         IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
 
-
         string textToMeasure = string.IsNullOrEmpty(Text) ? PlaceholderText : Text;
         if (string.IsNullOrEmpty(textToMeasure))
         {
-            Size = new Vector2(TextOrigin.X * 2 + 20, Size.Y); // Minimum size
+            Size = new Vector2(TextOrigin.X * 2 + 20, Size.Y);
             return;
         }
 
@@ -271,7 +232,7 @@ public partial class LineEdit : Button
     {
         if (string.IsNullOrEmpty(character)) return 0f;
         IDWriteFactory dwriteFactory = context.DWriteFactory;
-        if (dwriteFactory == null) return 0f; // Cannot measure
+        if (dwriteFactory == null) return 0f;
 
         using IDWriteTextFormat textFormat = dwriteFactory.CreateTextFormat(
             style.FontName, null, style.FontWeight, style.FontStyle, style.FontStretch, style.FontSize, CultureInfo.CurrentCulture.Name);
@@ -294,20 +255,26 @@ public partial class LineEdit : Button
 
     private void HandleCharacterInput()
     {
-        if (_pendingCharInput.HasValue)
+        if (!_pendingCharInput.HasValue)
         {
-            char typedChar = _pendingCharInput.Value;
-            _pendingCharInput = null; // Consume it
-
-            if (Text.Length < MaxCharacters)
-            {
-                if (ValidCharacters.Count == 0 || ValidCharacters.Contains(typedChar))
-                {
-                    PushStateForUndo();
-                    InsertCharacterLogic(typedChar);
-                }
-            }
+            return;
         }
+
+        char typedChar = _pendingCharInput.Value;
+        _pendingCharInput = null;
+
+        if (Text.Length >= MaxCharacters)
+        {
+            return;
+        }
+
+        if (ValidCharacters.Count != 0 && !ValidCharacters.Contains(typedChar))
+        {
+            return;
+        }
+
+        PushStateForUndo();
+        InsertCharacterLogic(typedChar);
     }
 
     private void InsertCharacterLogic(char c)
@@ -327,7 +294,7 @@ public partial class LineEdit : Button
         {
             _backspaceHeld = true;
             _backspaceTimer = 0f;
-            _backspaceCtrlHeld = ctrlHeld; // Capture ctrl state at initial press
+            _backspaceCtrlHeld = ctrlHeld;
             PerformBackspaceAction(_backspaceCtrlHeld);
         }
         else if (Input.IsKeyDown(KeyCode.Backspace) && _backspaceHeld)
@@ -335,7 +302,6 @@ public partial class LineEdit : Button
             _backspaceTimer += Time.Delta;
             if (_backspaceTimer >= BackspaceDelay)
             {
-                // Simplified repeat logic
                 if ((_backspaceTimer - BackspaceDelay) % BackspaceSpeed < Time.Delta)
                 {
                     PerformBackspaceAction(_backspaceCtrlHeld);
@@ -354,14 +320,14 @@ public partial class LineEdit : Button
         if (Text.Length == 0 || CaretLogicalPosition == 0) return;
 
         PushStateForUndo();
-        if (isCtrlHeld) // Delete previous word
+        if (isCtrlHeld)
         {
             int originalCaretPos = CaretLogicalPosition;
             int wordStart = FindPreviousWordStart(Text, originalCaretPos);
             Text = Text.Remove(wordStart, originalCaretPos - wordStart);
             CaretLogicalPosition = wordStart;
         }
-        else // Delete single character
+        else
         {
             Text = Text.Remove(CaretLogicalPosition - 1, 1);
             CaretLogicalPosition--;
@@ -373,9 +339,7 @@ public partial class LineEdit : Button
     {
         if (currentPos == 0) return 0;
         int pos = currentPos - 1;
-        // Skip trailing spaces before the word
         while (pos > 0 && char.IsWhiteSpace(text[pos])) pos--;
-        // Find start of the word (non-space)
         while (pos > 0 && !char.IsWhiteSpace(text[pos - 1])) pos--;
         return pos;
     }
@@ -388,7 +352,6 @@ public partial class LineEdit : Button
             {
                 PushStateForUndo();
                 Text = Text.Remove(CaretLogicalPosition, 1);
-                // CaretLogicalPosition doesn't change, but display might if text scrolls
                 UpdateCaretDisplayPositionAndStartIndex();
             }
         }
@@ -414,16 +377,11 @@ public partial class LineEdit : Button
         {
             try
             {
-                // TODO: Enable System.Windows.Forms in the project file (.csproj) to use Clipboard.
-                // For .NET Core/5+, add: <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
-                // For .NET Framework, add a reference to System.Windows.Forms.dll.
-                // string clipboardText = Clipboard.GetText(); 
-                string clipboardText = ""; // Placeholder
+                string clipboardText = "";
                 Log.Warning("Clipboard.GetText() is currently disabled. Project setup required for System.Windows.Forms.");
 
                 if (!string.IsNullOrEmpty(clipboardText))
                 {
-                    // Sanitize clipboard text (e.g., remove newlines)
                     clipboardText = clipboardText.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
                     Insert(clipboardText);
                 }
@@ -462,7 +420,6 @@ public partial class LineEdit : Button
             _undoTimer = 0f;
         }
 
-
         if (ctrlHeld && Input.IsKeyPressed(KeyCode.Y))
         {
             Redo();
@@ -479,7 +436,7 @@ public partial class LineEdit : Button
 
     private void ConfirmAction()
     {
-        Selected = false; // Deselect on confirm
+        Selected = false;
         Confirmed?.Invoke(this, Text);
     }
 
@@ -500,7 +457,7 @@ public partial class LineEdit : Button
         if (dwriteFactory == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
-            return (int)(availableWidth / 8); // Rough fallback
+            return (int)(availableWidth / 8);
         }
 
         if (TextStartIndex >= Text.Length && Text.Length > 0)
@@ -533,7 +490,7 @@ public partial class LineEdit : Button
         if (result.Failure)
         {
             Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
-            return (int)(availableWidth / 8); // Fallback on error
+            return (int)(availableWidth / 8);
         }
 
         if (actualClusterCount == 0) return 0;
@@ -557,7 +514,6 @@ public partial class LineEdit : Button
         return displayableCharacterLengthInSubstring;
     }
 
-
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
         if (Text.Length == 0)
@@ -576,7 +532,6 @@ public partial class LineEdit : Button
             return;
         }
 
-        // Auto-scroll to show full text when enabled and text fits
         if (AutoScrollToShowFullText)
         {
             IDWriteFactory? dwriteFactory = GetDWriteFactory();
@@ -593,7 +548,7 @@ public partial class LineEdit : Button
         }
 
         int displayableChars = GetDisplayableCharactersCount();
-        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
+        if (displayableChars <= 0 && Text.Length > 0)
         {
             TextStartIndex = CaretLogicalPosition;
             _caret.CaretDisplayPositionX = 0;
@@ -601,16 +556,14 @@ public partial class LineEdit : Button
             return;
         }
 
-        // Auto-scroll to show more characters when possible
         if (AutoScrollToShowFullText)
         {
-            // Calculate how many additional characters we can show at the beginning
             int maxVisibleChars = GetDisplayableCharactersCount(0);
             if (maxVisibleChars > displayableChars && TextStartIndex > 0)
             {
                 int charactersToShow = maxVisibleChars - displayableChars;
                 TextStartIndex = Math.Max(0, TextStartIndex - charactersToShow);
-                displayableChars = GetDisplayableCharactersCount(); // Recalculate after adjusting start index
+                displayableChars = GetDisplayableCharactersCount();
             }
         }
 
@@ -634,7 +587,6 @@ public partial class LineEdit : Button
         _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
     }
 
-    // Overload to measure from specific start index
     private int GetDisplayableCharactersCount(int startIndex)
     {
         if (Size.X <= TextOrigin.X * 2) return 0;
@@ -646,7 +598,7 @@ public partial class LineEdit : Button
         if (dwriteFactory == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
-            return (int)(availableWidth / 8); // Rough fallback
+            return (int)(availableWidth / 8);
         }
 
         if (startIndex >= Text.Length && Text.Length > 0) return 0;
@@ -676,7 +628,7 @@ public partial class LineEdit : Button
         if (result.Failure)
         {
             Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
-            return (int)(availableWidth / 8); // Fallback on error
+            return (int)(availableWidth / 8);
         }
 
         if (actualClusterCount == 0) return 0;
@@ -704,13 +656,17 @@ public partial class LineEdit : Button
     {
         if (_undoStack.Count > 0 && _undoStack.Peek().Text == _text && _undoStack.Peek().CaretPosition == CaretLogicalPosition)
         {
-            return; // Don't push identical state
+            return;
         }
         if (_undoStack.Count >= HistoryLimit)
         {
             var tempList = _undoStack.ToList();
-            tempList.RemoveAt(0); // Remove oldest
-            _undoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+            tempList.RemoveAt(0);
+            _undoStack.Clear();
+            foreach (var state in tempList.AsEnumerable().Reverse())
+            {
+                _undoStack.Push(state);
+            }
         }
         _undoStack.Push(new LineEditState(_text, CaretLogicalPosition, TextStartIndex));
         _redoStack.Clear();
@@ -726,7 +682,11 @@ public partial class LineEdit : Button
             {
                 var tempList = _redoStack.ToList();
                 tempList.RemoveAt(0);
-                _redoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+                _redoStack.Clear();
+                foreach (var state in tempList.AsEnumerable().Reverse())
+                {
+                    _redoStack.Push(state);
+                }
             }
 
             LineEditState previousState = _undoStack.Pop();
@@ -749,7 +709,11 @@ public partial class LineEdit : Button
             {
                 var tempList = _undoStack.ToList();
                 tempList.RemoveAt(0);
-                _undoStack = new Stack<LineEditState>(tempList.AsEnumerable().Reverse());
+                _undoStack.Clear();
+                foreach (var state in tempList.AsEnumerable().Reverse())
+                {
+                    _undoStack.Push(state);
+                }
             }
 
             LineEditState nextState = _redoStack.Pop();
@@ -761,6 +725,8 @@ public partial class LineEdit : Button
             UpdateCaretDisplayPositionAndStartIndex();
         }
     }
+
+    protected record LineEditState(string Text, int CaretPosition, int TextStartIndex);
 
     protected Vector2 GetLocalMousePosition()
     {
@@ -778,20 +744,5 @@ public partial class LineEdit : Button
 
         Log.Warning($"LineEdit '{Name}': Could not determine owning window for local mouse position. Using global Input.MousePosition.");
         return Input.MousePosition;
-    }
-
-    // Helper class for Undo/Redo state
-    protected class LineEditState
-    {
-        public string Text { get; }
-        public int CaretPosition { get; } // Logical caret position
-        public int TextStartIndex { get; }
-
-        public LineEditState(string text, int caretPosition, int textStartIndex)
-        {
-            Text = text;
-            CaretPosition = caretPosition;
-            TextStartIndex = textStartIndex;
-        }
     }
 }
