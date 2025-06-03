@@ -67,6 +67,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
+    public bool AutoScrollToShowFullText { get; set; } = false; // New property to control auto-scroll
 
     // TextStartIndex: The index of the first character in `_text` that is visible.
     // This is used for horizontal scrolling.
@@ -482,6 +483,12 @@ public partial class LineEdit : Button
         Confirmed?.Invoke(this, Text);
     }
 
+    internal IDWriteFactory? GetDWriteFactory()
+    {
+        var owningWindow = GetOwningWindow() as Direct2DAppWindow;
+        return owningWindow?.DWriteFactory;
+    }
+
     internal int GetDisplayableCharactersCount()
     {
         if (Size.X <= TextOrigin.X * 2) return 0;
@@ -489,13 +496,12 @@ public partial class LineEdit : Button
         float availableWidth = Size.X - TextOrigin.X * 2;
         if (availableWidth <= 0) return 0;
 
-        var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
-        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null)
+        IDWriteFactory? dwriteFactory = GetDWriteFactory();
+        if (dwriteFactory == null)
         {
-            Log.Warning("LineEdit.GetDisplayableCharactersCount: Owning window or DWriteFactory not available. Falling back to rough estimate.");
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
             return (int)(availableWidth / 8); // Rough fallback
         }
-        IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
 
         if (TextStartIndex >= Text.Length && Text.Length > 0)
         {
@@ -506,7 +512,7 @@ public partial class LineEdit : Button
         string textToMeasure = Text.Substring(TextStartIndex);
         if (string.IsNullOrEmpty(textToMeasure)) return 0;
 
-        IDWriteTextFormat? textFormat = owningAppWindow.GetOrCreateTextFormat(Styles.Current);
+        IDWriteTextFormat? textFormat = (GetOwningWindow() as Direct2DAppWindow)?.GetOrCreateTextFormat(Styles.Current);
         if (textFormat == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
@@ -554,14 +560,6 @@ public partial class LineEdit : Button
 
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
-        int displayableChars = GetDisplayableCharactersCount();
-        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
-        {
-            TextStartIndex = CaretLogicalPosition;
-            _caret.CaretDisplayPositionX = 0;
-            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
-            return;
-        }
         if (Text.Length == 0)
         {
             TextStartIndex = 0;
@@ -570,6 +568,51 @@ public partial class LineEdit : Button
             return;
         }
 
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0)
+        {
+            TextStartIndex = 0;
+            _caret.CaretDisplayPositionX = 0;
+            return;
+        }
+
+        // Auto-scroll to show full text when enabled and text fits
+        if (AutoScrollToShowFullText)
+        {
+            IDWriteFactory? dwriteFactory = GetDWriteFactory();
+            if (dwriteFactory != null)
+            {
+                float fullTextWidth = MeasureTextWidth(dwriteFactory, Text, Styles.Current);
+                if (fullTextWidth <= availableWidth)
+                {
+                    TextStartIndex = 0;
+                    _caret.CaretDisplayPositionX = CaretLogicalPosition;
+                    return;
+                }
+            }
+        }
+
+        int displayableChars = GetDisplayableCharactersCount();
+        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
+        {
+            TextStartIndex = CaretLogicalPosition;
+            _caret.CaretDisplayPositionX = 0;
+            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
+            return;
+        }
+
+        // Auto-scroll to show more characters when possible
+        if (AutoScrollToShowFullText)
+        {
+            // Calculate how many additional characters we can show at the beginning
+            int maxVisibleChars = GetDisplayableCharactersCount(0);
+            if (maxVisibleChars > displayableChars && TextStartIndex > 0)
+            {
+                int charactersToShow = maxVisibleChars - displayableChars;
+                TextStartIndex = Math.Max(0, TextStartIndex - charactersToShow);
+                displayableChars = GetDisplayableCharactersCount(); // Recalculate after adjusting start index
+            }
+        }
 
         if (CaretLogicalPosition < TextStartIndex)
         {
@@ -587,11 +630,75 @@ public partial class LineEdit : Button
         }
         TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
 
-
         _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
         _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
     }
 
+    // Overload to measure from specific start index
+    private int GetDisplayableCharactersCount(int startIndex)
+    {
+        if (Size.X <= TextOrigin.X * 2) return 0;
+
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0) return 0;
+
+        IDWriteFactory? dwriteFactory = GetDWriteFactory();
+        if (dwriteFactory == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
+            return (int)(availableWidth / 8); // Rough fallback
+        }
+
+        if (startIndex >= Text.Length && Text.Length > 0) return 0;
+        if (Text.Length == 0) return 0;
+
+        string textToMeasure = Text.Substring(startIndex);
+        if (string.IsNullOrEmpty(textToMeasure)) return 0;
+
+        IDWriteTextFormat? textFormat = (GetOwningWindow() as Direct2DAppWindow)?.GetOrCreateTextFormat(Styles.Current);
+        if (textFormat == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+            textToMeasure,
+            textFormat,
+            float.MaxValue,
+            Size.Y
+        );
+
+        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[textToMeasure.Length];
+        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
+
+        if (result.Failure)
+        {
+            Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
+            return (int)(availableWidth / 8); // Fallback on error
+        }
+
+        if (actualClusterCount == 0) return 0;
+
+        float currentCumulativeWidth = 0;
+        int displayableCharacterLengthInSubstring = 0;
+
+        for (int i = 0; i < actualClusterCount; i++)
+        {
+            ClusterMetrics cluster = clusterMetricsBuffer[i];
+            if (currentCumulativeWidth + cluster.Width <= availableWidth)
+            {
+                currentCumulativeWidth += cluster.Width;
+                displayableCharacterLengthInSubstring += (int)cluster.Length;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return displayableCharacterLengthInSubstring;
+    }
 
     private void PushStateForUndo()
     {
