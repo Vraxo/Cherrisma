@@ -2,7 +2,7 @@
 
 namespace Cherris;
 
-public class HSlider : BaseSlider
+public class HSlider : Slider
 {
     public HSliderDirection Direction { get; set; } = HSliderDirection.LeftToRight;
 

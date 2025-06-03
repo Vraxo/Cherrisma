@@ -4,7 +4,6 @@ children:
       AnchorPreset: TopCenter
       MarginTop: 32
       HAlignment: Left
-      #RelativeWidth: 0.5
 
     - Node: HSlider::Slider
       AnchorPreset: BottomCenter

@@ -75,14 +75,6 @@ public partial class LineEdit : Button
     // CaretLogicalPosition: The caret's position as an index within the full `_text` string.
     internal int CaretLogicalPosition { get; set; } = 0;
 
-    /// <summary>
-    /// If true, when deleting characters while text is scrolled to the right (hiding text on the left),
-    /// the LineEdit will attempt to scroll back to the left to ensure the visible area is utilized,
-    /// rather than leaving empty space on the right while text remains hidden on the left.
-    /// Defaults to false to maintain original behavior.
-    /// </summary>
-    public bool AutoScrollOnDelete { get; set; } = false;
-
 
     public event EventHandler? FirstCharacterEntered;
     public event EventHandler? Cleared;
@@ -490,11 +482,6 @@ public partial class LineEdit : Button
         Confirmed?.Invoke(this, Text);
     }
 
-    /// <summary>
-    /// Calculates how many characters of the current text, starting from TextStartIndex,
-    /// can actually fit within the LineEdit's visible width.
-    /// This is used by TextDisplayer.
-    /// </summary>
     internal int GetDisplayableCharactersCount()
     {
         if (Size.X <= TextOrigin.X * 2) return 0;
@@ -506,15 +493,15 @@ public partial class LineEdit : Button
         if (owningAppWindow == null || owningAppWindow.DWriteFactory == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: Owning window or DWriteFactory not available. Falling back to rough estimate.");
-            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f)); // Rough fallback based on font size
+            return (int)(availableWidth / 8); // Rough fallback
         }
         IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
 
         if (TextStartIndex >= Text.Length && Text.Length > 0)
         {
-            return 0; // TextStartIndex is beyond or at the end of the text.
+            return 0;
         }
-        if (Text.Length == 0) return 0; // No text to display.
+        if (Text.Length == 0) return 0;
 
         string textToMeasure = Text.Substring(TextStartIndex);
         if (string.IsNullOrEmpty(textToMeasure)) return 0;
@@ -523,14 +510,14 @@ public partial class LineEdit : Button
         if (textFormat == null)
         {
             Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
-            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f));
+            return (int)(availableWidth / 8);
         }
         textFormat.WordWrapping = WordWrapping.NoWrap;
 
         using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
             textToMeasure,
             textFormat,
-            float.MaxValue, // Layout with effectively infinite width
+            float.MaxValue,
             Size.Y
         );
 
@@ -540,7 +527,7 @@ public partial class LineEdit : Button
         if (result.Failure)
         {
             Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
-            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f)); // Fallback
+            return (int)(availableWidth / 8); // Fallback on error
         }
 
         if (actualClusterCount == 0) return 0;
@@ -551,149 +538,58 @@ public partial class LineEdit : Button
         for (int i = 0; i < actualClusterCount; i++)
         {
             ClusterMetrics cluster = clusterMetricsBuffer[i];
-            // If there's ANY space left for the start of the next char, count it.
-            // The DrawText method will handle clipping the character if it partially exceeds availableWidth.
-            if (currentCumulativeWidth < availableWidth)
+            if (currentCumulativeWidth + cluster.Width <= availableWidth)
             {
-                currentCumulativeWidth += cluster.Width; // Add its full width for the next iteration's check.
+                currentCumulativeWidth += cluster.Width;
                 displayableCharacterLengthInSubstring += (int)cluster.Length;
             }
             else
             {
-                // No space left even for the start of this character cluster.
                 break;
             }
         }
         return displayableCharacterLengthInSubstring;
     }
 
-    /// <summary>
-    /// Calculates the maximum number of "typical" characters (e.g., 'x')
-    /// that can fit into the LineEdit's available width using the current font style.
-    /// This version uses GetClusterMetrics for consistency with GetDisplayableCharactersCount.
-    /// </summary>
-    private int CalculateFieldCharacterCapacity()
-    {
-        float availableWidth = Size.X - TextOrigin.X * 2;
-        if (availableWidth <= 0) return 0;
-
-        var owningAppWindow = GetOwningWindow() as Direct2DAppWindow;
-        if (owningAppWindow == null || owningAppWindow.DWriteFactory == null || Styles?.Current == null)
-        {
-            Log.Warning("LineEdit.CalculateFieldCharacterCapacity: Dependencies not available. Falling back to rough estimate.");
-            return (int)(availableWidth / ((Styles?.Current?.FontSize ?? 12f) * 0.6f));
-        }
-        IDWriteFactory dwriteFactory = owningAppWindow.DWriteFactory;
-        ButtonStyle currentStyle = Styles.Current;
-
-        IDWriteTextFormat? textFormat = owningAppWindow.GetOrCreateTextFormat(currentStyle);
-        if (textFormat == null)
-        {
-            Log.Warning("LineEdit.CalculateFieldCharacterCapacity: Could not get TextFormat. Falling back.");
-            return (int)(availableWidth / (currentStyle.FontSize * 0.6f));
-        }
-        textFormat.WordWrapping = WordWrapping.NoWrap;
-
-        // Use a representative sample string. 'x' is often used.
-        // Length should be sufficient to fill typical availableWidth.
-        const int sampleLength = 256;
-        string sampleText = new string('x', sampleLength);
-
-        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
-            sampleText,
-            textFormat,
-            float.MaxValue, // Layout with effectively infinite width
-            Size.Y
-        );
-
-        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[sampleLength];
-        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
-
-        if (result.Failure)
-        {
-            Log.Error($"LineEdit.CalculateFieldCharacterCapacity: GetClusterMetrics failed with HRESULT {result.Code}. Falling back.");
-            return (int)(availableWidth / (currentStyle.FontSize * 0.6f));
-        }
-
-        if (actualClusterCount == 0) return 0;
-
-        float currentCumulativeWidth = 0;
-        int fittedCharacterCount = 0;
-
-        for (int i = 0; i < actualClusterCount; i++)
-        {
-            ClusterMetrics cluster = clusterMetricsBuffer[i];
-            if (currentCumulativeWidth < availableWidth) // If the cluster can start within available width
-            {
-                // This cluster starts within the available width.
-                currentCumulativeWidth += cluster.Width; // Add its full width.
-                fittedCharacterCount += (int)cluster.Length; // Add its character length.
-                // Note: If currentCumulativeWidth now exceeds availableWidth, this character is the last one
-                // that could start, and it will be partially visible. This logic matches GetDisplayableCharactersCount.
-            }
-            else
-            {
-                // This cluster starts outside the available width.
-                break;
-            }
-        }
-        return fittedCharacterCount;
-    }
-
 
     internal void UpdateCaretDisplayPositionAndStartIndex()
     {
-        int fieldCharacterCapacity = CalculateFieldCharacterCapacity();
-
-        if (Text.Length == 0)
-        {
-            TextStartIndex = 0;
-            CaretLogicalPosition = 0;
-            _caret.CaretDisplayPositionX = 0;
-            return;
-        }
-
-        // If LineEdit is too small to display even one character.
-        if (fieldCharacterCapacity <= 0)
+        int displayableChars = GetDisplayableCharactersCount();
+        if (displayableChars <= 0 && Text.Length > 0) // If no chars fit but text exists
         {
             TextStartIndex = CaretLogicalPosition;
             _caret.CaretDisplayPositionX = 0;
             TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
             return;
         }
+        if (Text.Length == 0)
+        {
+            TextStartIndex = 0;
+            _caret.CaretDisplayPositionX = 0;
+            CaretLogicalPosition = 0;
+            return;
+        }
 
-        // Adjust TextStartIndex based on CaretLogicalPosition to ensure caret is visible.
+
         if (CaretLogicalPosition < TextStartIndex)
         {
             TextStartIndex = CaretLogicalPosition;
         }
-        else if (CaretLogicalPosition > TextStartIndex + fieldCharacterCapacity)
+        else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
         {
-            TextStartIndex = CaretLogicalPosition - fieldCharacterCapacity;
+            TextStartIndex = CaretLogicalPosition - displayableChars + 1;
         }
 
-        // Auto-scroll left on delete if enabled and applicable
-        if (AutoScrollOnDelete)
+        TextStartIndex = Math.Max(0, TextStartIndex);
+        if (TextStartIndex + displayableChars > Text.Length && displayableChars > 0)
         {
-            if ((Text.Length - TextStartIndex) < fieldCharacterCapacity && TextStartIndex > 0)
-            {
-                TextStartIndex = Math.Max(0, Text.Length - fieldCharacterCapacity);
-            }
+            TextStartIndex = Math.Max(0, Text.Length - displayableChars);
         }
+        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
 
-        // Final clamping for TextStartIndex
-        if (Text.Length <= fieldCharacterCapacity)
-        {
-            TextStartIndex = 0;
-        }
-        else
-        {
-            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length - fieldCharacterCapacity);
-        }
 
         _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
-        int actualCharsInViewAfterStartIndex = Text.Length - TextStartIndex;
-        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, Math.Min(fieldCharacterCapacity, actualCharsInViewAfterStartIndex));
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
     }
 
 
@@ -731,8 +627,8 @@ public partial class LineEdit : Button
             CaretLogicalPosition = previousState.CaretPosition;
             TextStartIndex = previousState.TextStartIndex;
 
-            UpdateCaretDisplayPositionAndStartIndex();
             TextChanged?.Invoke(this, _text);
+            UpdateCaretDisplayPositionAndStartIndex();
         }
     }
 
@@ -754,8 +650,8 @@ public partial class LineEdit : Button
             CaretLogicalPosition = nextState.CaretPosition;
             TextStartIndex = nextState.TextStartIndex;
 
-            UpdateCaretDisplayPositionAndStartIndex();
             TextChanged?.Invoke(this, _text);
+            UpdateCaretDisplayPositionAndStartIndex();
         }
     }
 

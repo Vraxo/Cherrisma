@@ -2,7 +2,7 @@
 
 namespace Cherris;
 
-public abstract class BaseSlider : Control
+public abstract class Slider : Control
 {
     // Add this property
     public bool SuppressValueChangedEvent { get; set; } = false;
@@ -53,7 +53,7 @@ public abstract class BaseSlider : Control
 
     public event Action<float>? ValueChanged; // Added event
 
-    public BaseSlider()
+    public Slider()
     {
         Size = new(200, 16);
         Focusable = true;
