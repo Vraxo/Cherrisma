@@ -67,7 +67,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false; // Requires robust DWrite measurement
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = false; // New property to control auto-scroll
+    public bool AutoScrollToShowFullText { get; set; } = true; // New property to control auto-scroll
 
     // TextStartIndex: The index of the first character in `_text` that is visible.
     // This is used for horizontal scrolling.
