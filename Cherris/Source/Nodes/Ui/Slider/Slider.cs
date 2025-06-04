@@ -41,8 +41,9 @@ public abstract class Slider : Control
     protected bool grabberHovered;
     protected bool trackHovered;
     protected Vector2 trackPosition; // Used for input logic bounds, updated in Process()
-    protected float trackMin;
-    protected float trackMax;
+                                     // This will store the visual top-left of the slider in window coordinates.
+    protected float trackMin;        // Min bound for interaction (X for HSlider, Y for VSlider) in window coordinates.
+    protected float trackMax;        // Max bound for interaction (X for HSlider, Y for VSlider) in window coordinates.
 
     private float _step = 0.01f;
     public float Step
@@ -81,7 +82,7 @@ public abstract class Slider : Control
             return;
         }
 
-        CalculateTrackBounds(); // Updates this.trackPosition, trackMin, trackMax for input logic
+        CalculateTrackBounds();
         UpdateHoverStates();
 
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
@@ -169,14 +170,14 @@ public abstract class Slider : Control
 
     private void DrawBackground(DrawingContext context)
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
-        var bounds = new Rect(currentGlobalPos.X, currentGlobalPos.Y, Size.X, Size.Y);
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
+        var bounds = new Rect(sliderVisualTopLeft.X, sliderVisualTopLeft.Y, Size.X, Size.Y);
         DrawStyledRectangle(context, bounds, Style.Background);
     }
 
     private void DrawGrabber(DrawingContext context)
     {
-        Vector2 grabberPos = CalculateGrabberPosition(); // This will use fresh GlobalPosition internally
+        Vector2 grabberPos = CalculateGrabberPosition();
         ButtonStyle currentGrabberStyle = Style.Grabber.Current;
 
         var bounds = new Rect(grabberPos.X, grabberPos.Y, GrabberSize.X, GrabberSize.Y);
@@ -187,7 +188,7 @@ public abstract class Slider : Control
     {
         if (Disabled || !Focusable) return;
 
-        if (trackHovered || grabberHovered) // trackHovered and grabberHovered are from Process()
+        if (trackHovered || grabberHovered)
         {
             Focused = true;
         }

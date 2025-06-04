@@ -7,8 +7,8 @@ children:
 
     - Node: HBoxContainer::ButtonContainer
       AnchorPreset: BottomCenter
-      HAlignment: Right # HBoxContainer will center its content (the buttons)
-      MarginBottom: 52
+      HAlignment: Center # HBoxContainer will center its content (the buttons)
+      MarginBottom: 32
       Separation: 8
       children:
         - Node: Button::ButtonPrevious
@@ -25,6 +25,7 @@ children:
           HAlignment: Left # Ensures button's origin is (0,y)
 
     - Node: HSlider::Slider
+      HAlignment: Right
       AnchorPreset: BottomCenter
       Size: [300, 8]
       RelativeWidth: 0.5

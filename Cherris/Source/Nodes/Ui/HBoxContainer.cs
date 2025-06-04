@@ -6,6 +6,8 @@ namespace Cherris;
 public class HBoxContainer : Node2D
 {
     public float Separation { get; set; } = 4f;
+    // Note: HBoxContainer inherits _explicitSize from Node2D (default 320,320)
+    // If no Size is specified in YAML for HBoxContainer, it will use this default.
 
     public override void Process()
     {
@@ -17,63 +19,69 @@ public class HBoxContainer : Node2D
     {
         var visibleNode2DChildren = Children.OfType<Node2D>().Where(c => c.Visible).ToList();
 
-        if (!visibleNode2DChildren.Any())
+        float totalRequiredContentWidth = 0;
+        float maxChildHeight = 0;
+
+        if (visibleNode2DChildren.Any())
         {
-            // If there are no children, and the current explicit size is not zero,
-            // set it to zero using the public Size setter.
-            if (_explicitSize != Vector2.Zero)
+            foreach (Node2D child in visibleNode2DChildren)
             {
-                this.Size = Vector2.Zero;
+                totalRequiredContentWidth += child.Size.X;
+                maxChildHeight = Math.Max(maxChildHeight, child.Size.Y);
             }
-            return;
+            totalRequiredContentWidth += (visibleNode2DChildren.Count - 1) * Separation;
         }
-
-        float totalChildrenWidth = 0;
-        float calculatedContainerHeight = 0;
-
-        foreach (Node2D child in visibleNode2DChildren)
+        else // No visible children
         {
-            totalChildrenWidth += child.Size.X;
-            calculatedContainerHeight = Math.Max(calculatedContainerHeight, child.Size.Y);
-        }
-
-        float totalSeparation = (visibleNode2DChildren.Count > 1) ? (visibleNode2DChildren.Count - 1) * Separation : 0;
-        float totalRequiredContentWidth = totalChildrenWidth + totalSeparation;
-
-        Vector2 newShrinkWrapExplicitSize = new Vector2(totalRequiredContentWidth, calculatedContainerHeight);
-
-        // Update the container's _explicitSize if it's meant to shrink-wrap to content
-        // and is not controlled by relative sizing.
-        if (RelativeWidth <= 0 && RelativeHeight <= 0)
-        {
-            // Only update if the calculated shrink-wrap size is different from the current explicit size.
-            // This prevents unnecessary event invocations if the content size hasn't changed.
-            if (_explicitSize != newShrinkWrapExplicitSize)
+            // If HBoxContainer has no explicit size control (not relative, explicit is default/zero)
+            // then its size should ideally be zero.
+            if (RelativeWidth <= 0 && RelativeHeight <= 0 && _explicitSize != Vector2.Zero)
             {
-                // Use the public 'Size' setter from Node2D. This will:
-                // 1. Update _explicitSize to newShrinkWrapExplicitSize.
-                // 2. Trigger the SizeChanged event with the *final calculated size*.
-                this.Size = newShrinkWrapExplicitSize;
+                // this.Size = Vector2.Zero; // Set to zero if it was something else
+            }
+            // If it has children, layout continues below. If not, effectively done.
+        }
+
+        // Determine the container's actual rendering width and height for child layout.
+        // This uses the Node2D.Size property, which considers _explicitSize (from YAML or Node2D default)
+        // and RelativeWidth/Height.
+        float currentContainerRenderWidth = this.Size.X;
+        float currentContainerRenderHeight = this.Size.Y;
+
+        // Adjust container's explicit height if it's not relatively sized and is smaller than content.
+        // This allows the container to grow vertically to fit children.
+        if (this.RelativeHeight == 0)
+        {
+            if (_explicitSize.Y < maxChildHeight) // Compare against _explicitSize.Y
+            {
+                // Update _explicitSize.Y to fit content and trigger SizeChanged
+                this.Size = new Vector2(_explicitSize.X, maxChildHeight); // This updates _explicitSize via setter
+                currentContainerRenderHeight = this.Size.Y; // Re-fetch potentially updated height
+            }
+            else if (visibleNode2DChildren.Any() && _explicitSize.Y == 0 && maxChildHeight > 0) // Handle if _explicitSize.Y was truly zero
+            {
+                this.Size = new Vector2(_explicitSize.X, maxChildHeight);
+                currentContainerRenderHeight = this.Size.Y;
             }
         }
-        // If RelativeWidth/Height are active, _explicitSize is used by the Size getter for the non-relative dimension,
-        // or as a base if the relative calculation results in a smaller size than _explicitSize (depending on interpretation/implementation).
-        // For now, we let the Node2D.Size getter handle the final size calculation.
+        // If no children and not relative, ensure explicit height is also cleared if width was cleared.
+        // This is more complex if we want perfect shrink-to-zero.
+        // For now, if no children, content width/height are 0, and layout below handles it.
 
-        float containerDisplayWidth = this.Size.X; // Current actual width of the HBoxContainer (getter recalculates)
-        float containerDisplayHeight = this.Size.Y; // Current actual height
 
         float initialContentOffsetX = 0;
-        switch (this.HAlignment) // Use HBoxContainer's own HAlignment property
+        // Use the HBoxContainer's own HAlignment to position the block of children
+        // within its currentContainerRenderWidth.
+        switch (this.HAlignment)
         {
             case HAlignment.Left:
                 initialContentOffsetX = 0;
                 break;
             case HAlignment.Center:
-                initialContentOffsetX = (containerDisplayWidth - totalRequiredContentWidth) / 2f;
+                initialContentOffsetX = (currentContainerRenderWidth - totalRequiredContentWidth) / 2f;
                 break;
             case HAlignment.Right:
-                initialContentOffsetX = containerDisplayWidth - totalRequiredContentWidth;
+                initialContentOffsetX = currentContainerRenderWidth - totalRequiredContentWidth;
                 break;
             case HAlignment.None: // Treat as Left
             default:
@@ -85,19 +93,19 @@ public class HBoxContainer : Node2D
         foreach (Node2D child in visibleNode2DChildren)
         {
             float childY = 0;
+            // Use child's VAlignment to position it vertically within the HBoxContainer's height.
             switch (child.VAlignment)
             {
                 case VAlignment.Top:
                     childY = 0;
                     break;
                 case VAlignment.Center:
-                    // Align child center to container's content area center (not necessarily container's visual center if padding/margins were involved)
-                    childY = (containerDisplayHeight / 2f) - (child.Size.Y / 2f);
+                    childY = (currentContainerRenderHeight / 2f) - (child.Size.Y / 2f);
                     break;
                 case VAlignment.Bottom:
-                    childY = containerDisplayHeight - child.Size.Y;
+                    childY = currentContainerRenderHeight - child.Size.Y;
                     break;
-                case VAlignment.None:
+                case VAlignment.None: // Treat as Top
                 default:
                     childY = 0;
                     break;

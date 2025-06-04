@@ -39,7 +39,27 @@ children:
       MarginTop: 32
       HAlignment: Left
 
+    - Node: HBoxContainer::ButtonContainer
+      AnchorPreset: BottomCenter
+      HAlignment: Center # HBoxContainer will center its content (the buttons)
+      MarginBottom: 32
+      Separation: 8
+      children:
+        - Node: Button::ButtonPrevious
+          Text: "<"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+        - Node: Button::ButtonPlayPause
+          Text: "||"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+        - Node: Button::ButtonNext
+          Text: ">"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+
     - Node: HSlider::Slider
+      HAlignment: Right
       AnchorPreset: BottomCenter
       Size: [300, 8]
       RelativeWidth: 0.5
@@ -2421,20 +2441,20 @@ namespace Cherris;
 
 public class Node2D : VisualItem
 {
-    public Vector2 Position          { get; set; } = Vector2.Zero;
-    public virtual float Rotation    { get; set; } = 0;
-    public OriginPreset OriginPreset { get; set; } = OriginPreset.Center;
-    public bool InheritScale         { get; set; } = true;
-    public HAlignment HAlignment     { get; set; } = HAlignment.Center;
-    public VAlignment VAlignment     { get; set; } = VAlignment.Center;
+    public Vector2 Position { get; set; } = Vector2.Zero;
+    public virtual float Rotation { get; set; } = 0;
+    public OriginPreset OriginPreset { get; set; } = OriginPreset.Center; // Note: OriginPreset is currently not used by Origin getter.
+    public bool InheritScale { get; set; } = true;
+    public HAlignment HAlignment { get; set; } = HAlignment.Center;
+    public VAlignment VAlignment { get; set; } = VAlignment.Center;
     public AnchorPreset AnchorPreset { get; set; } = AnchorPreset.None;
 
-    public float MarginLeft   { get; set; } = 0f;
-    public float MarginTop    { get; set; } = 0f;
-    public float MarginRight  { get; set; } = 0f;
+    public float MarginLeft { get; set; } = 0f;
+    public float MarginTop { get; set; } = 0f;
+    public float MarginRight { get; set; } = 0f;
     public float MarginBottom { get; set; } = 0f;
 
-    public float RelativeWidth  { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
+    public float RelativeWidth { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
     public float RelativeHeight { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit height.
 
     public Vector2 ScaledSize => Size * Scale;
@@ -2447,22 +2467,20 @@ public class Node2D : VisualItem
 
             if (Parent is Node2D parentNode2D)
             {
-                referenceSizeForRelative = parentNode2D.Size; // Parent's calculated size
+                referenceSizeForRelative = parentNode2D.Size;
             }
             else
             {
-                referenceSizeForRelative = GetWindowSizeV2(); // Window size if no Node2D parent
+                referenceSizeForRelative = GetWindowSizeV2();
             }
 
             float finalWidth = _explicitSize.X;
-            // If RelativeWidth is set (e.g. 0.5 for 50%), calculate width based on reference.
             if (RelativeWidth > 0f && RelativeWidth <= 1f)
             {
                 finalWidth = referenceSizeForRelative.X * RelativeWidth;
             }
 
             float finalHeight = _explicitSize.Y;
-            // If RelativeHeight is set, calculate height based on reference.
             if (RelativeHeight > 0f && RelativeHeight <= 1f)
             {
                 finalHeight = referenceSizeForRelative.Y * RelativeHeight;
@@ -2470,121 +2488,131 @@ public class Node2D : VisualItem
 
             return new Vector2(finalWidth, finalHeight);
         }
-        set // This setter updates the _explicitSize. Relative sizing remains active if configured.
+        set
         {
-            if (_explicitSize == value)
-            {
-                return;
-            }
-
+            if (_explicitSize == value) return;
             _explicitSize = value;
-            // Invoke SizeChanged with the new *calculated* size, as the explicit base has changed.
             SizeChanged?.Invoke(this, Size);
         }
     }
 
     public virtual Vector2 Scale
     {
-        get
-        {
-            return InheritScale && Parent is Node2D node2DParent
-                ? node2DParent.Scale
-                : field;
-        }
-
-        set;
+        get => InheritScale && Parent is Node2D node2DParent ? node2DParent.Scale : field;
+        set => field = value;
     } = new(1, 1);
 
     public virtual Vector2 GlobalPosition
     {
         get
         {
-            Vector2 parentTopLeft;
+            Vector2 parentGlobalTopLeft; // Top-left of the parent's bounding box in global space
             Vector2 parentSize;
 
             if (Parent is Node2D parentNode)
             {
-                parentTopLeft = parentNode.GlobalPosition;
+                // To get parent's global top-left, we need its GlobalPosition (which is its Origin) and its Origin
+                parentGlobalTopLeft = parentNode.GlobalPosition - parentNode.Origin;
                 parentSize = parentNode.Size;
             }
             else
             {
-                parentTopLeft = Vector2.Zero;
+                parentGlobalTopLeft = Vector2.Zero; // Root relative to window
                 parentSize = GetWindowSizeV2();
             }
 
-            float myCalculatedTopLeftX;
-            float myCalculatedTopLeftY;
+            float calculatedGlobalOriginX;
+            float calculatedGlobalOriginY;
 
             if (AnchorPreset == AnchorPreset.None)
             {
-                myCalculatedTopLeftX = parentTopLeft.X + Position.X;
-                myCalculatedTopLeftY = parentTopLeft.Y + Position.Y;
+                // If no anchor, GlobalPosition is parent's top-left + local Position
+                // (semantically, local Position is relative to parent's top-left if parent is root,
+                // or parent's Origin if parent is Node2D - for consistency, let's use parent's top-left)
+                // No, GlobalPosition of a child is relative to parent's origin for direct children
+                Vector2 parentOriginGlobal = (Parent is Node2D pNode) ? pNode.GlobalPosition : Vector2.Zero;
+                calculatedGlobalOriginX = parentOriginGlobal.X + Position.X;
+                calculatedGlobalOriginY = parentOriginGlobal.Y + Position.Y;
             }
             else
             {
-                myCalculatedTopLeftX = AnchorPreset switch
+                // Calculate the target anchor point on the parent in global space
+                float targetGlobalAnchorX = AnchorPreset switch
                 {
-                    AnchorPreset.TopLeft or AnchorPreset.CenterLeft or AnchorPreset.BottomLeft => parentTopLeft.X + MarginLeft,
-                    AnchorPreset.TopCenter or AnchorPreset.Center or AnchorPreset.BottomCenter => parentTopLeft.X + (parentSize.X * 0.5f) - (Size.X * 0.5f) + MarginLeft,
-                    _ => parentTopLeft.X + parentSize.X - Size.X - MarginRight,
+                    AnchorPreset.TopLeft or AnchorPreset.CenterLeft or AnchorPreset.BottomLeft
+                        => parentGlobalTopLeft.X + MarginLeft,
+                    AnchorPreset.TopCenter or AnchorPreset.Center or AnchorPreset.BottomCenter
+                        => parentGlobalTopLeft.X + (parentSize.X * 0.5f) + MarginLeft - MarginRight,
+                    _ // TopRight, CenterRight, BottomRight
+                        => parentGlobalTopLeft.X + parentSize.X - MarginRight,
                 };
 
-                myCalculatedTopLeftY = AnchorPreset switch
+                float targetGlobalAnchorY = AnchorPreset switch
                 {
-                    AnchorPreset.TopLeft or AnchorPreset.TopCenter or AnchorPreset.TopRight => parentTopLeft.Y + MarginTop,
-                    AnchorPreset.CenterLeft or AnchorPreset.Center or AnchorPreset.CenterRight => parentTopLeft.Y + (parentSize.Y * 0.5f) - (Size.Y * 0.5f) + MarginTop,
-                    _ => parentTopLeft.Y + parentSize.Y - Size.Y - MarginBottom,
+                    AnchorPreset.TopLeft or AnchorPreset.TopCenter or AnchorPreset.TopRight
+                        => parentGlobalTopLeft.Y + MarginTop,
+                    AnchorPreset.CenterLeft or AnchorPreset.Center or AnchorPreset.CenterRight
+                        => parentGlobalTopLeft.Y + (parentSize.Y * 0.5f) + MarginTop - MarginBottom,
+                    _ // BottomLeft, BottomCenter, BottomRight
+                        => parentGlobalTopLeft.Y + parentSize.Y - MarginBottom,
                 };
 
-                myCalculatedTopLeftX += Position.X;
-                myCalculatedTopLeftY += Position.Y;
+                // The node's own Origin should be placed at this target global anchor point.
+                // So, GlobalPosition.X (which is the origin's X) IS targetGlobalAnchorX.
+                calculatedGlobalOriginX = targetGlobalAnchorX;
+                calculatedGlobalOriginY = targetGlobalAnchorY;
+
+                // Then, the node's local `Position` property acts as an additional offset
+                // from this already-calculated anchored origin position.
+                calculatedGlobalOriginX += Position.X;
+                calculatedGlobalOriginY += Position.Y;
             }
 
-            return new(myCalculatedTopLeftX, myCalculatedTopLeftY);
+            return new(calculatedGlobalOriginX, calculatedGlobalOriginY);
         }
     }
 
-    public Vector2 Offset { get; set;}
+    public Vector2 Offset { get; set; } // Offset applied to Origin calculation
 
-    public Vector2 Origin
+    public Vector2 Origin // This is the node's pivot point, relative to its own top-left corner
     {
         get
         {
+            // Note: OriginPreset is currently not used here.
+            // HAlignment/VAlignment directly determine the origin.
             float x = HAlignment switch
             {
                 HAlignment.Center => Size.X / 2f,
                 HAlignment.Left => 0,
                 HAlignment.Right => Size.X,
+                HAlignment.None => 0, // Default to Left if None
                 _ => 0
             };
 
             float y = VAlignment switch
             {
-                VAlignment.Top => 0,
                 VAlignment.Center => Size.Y / 2f,
+                VAlignment.Top => 0,
                 VAlignment.Bottom => Size.Y,
+                VAlignment.None => 0, // Default to Top if None
                 _ => 0
             };
 
             Vector2 alignmentOffset = new(x, y);
-            return alignmentOffset + Offset;
+            return alignmentOffset + Offset; // Apply additional Offset
         }
     }
 
-    private Vector2 _explicitSize = new(320, 320);
-
-    // Events
+    protected Vector2 _explicitSize = new(320, 320);
+    private Vector2 fieldScale = new(1, 1); // Backing field for Scale if not inheriting
 
     public event EventHandler<Vector2>? SizeChanged;
 
-    // API
-
     public void LookAt(Vector2 targetPosition)
     {
-        Vector2 originPoint = GlobalPosition + Origin;
+        Vector2 originPoint = GlobalPosition; // GlobalPosition is already the origin's position
         Vector2 direction = targetPosition - originPoint;
-        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f;
+        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f; // Radians to Degrees
         Rotation = angle;
     }
 }
@@ -7518,6 +7546,131 @@ public class Button : Control
             return input.Substring(0, input.Length - Ellipsis.Length) + Ellipsis;
         }
         return input;
+    }
+}
+</file>
+
+<file path="Source\Nodes\Ui\HBoxContainer.cs">
+using System.Linq;
+using System.Numerics;
+
+namespace Cherris;
+
+public class HBoxContainer : Node2D
+{
+    public float Separation { get; set; } = 4f;
+    // Note: HBoxContainer inherits _explicitSize from Node2D (default 320,320)
+    // If no Size is specified in YAML for HBoxContainer, it will use this default.
+
+    public override void Process()
+    {
+        base.Process();
+        UpdateLayout();
+    }
+
+    private void UpdateLayout()
+    {
+        var visibleNode2DChildren = Children.OfType<Node2D>().Where(c => c.Visible).ToList();
+
+        float totalRequiredContentWidth = 0;
+        float maxChildHeight = 0;
+
+        if (visibleNode2DChildren.Any())
+        {
+            foreach (Node2D child in visibleNode2DChildren)
+            {
+                totalRequiredContentWidth += child.Size.X;
+                maxChildHeight = Math.Max(maxChildHeight, child.Size.Y);
+            }
+            totalRequiredContentWidth += (visibleNode2DChildren.Count - 1) * Separation;
+        }
+        else // No visible children
+        {
+            // If HBoxContainer has no explicit size control (not relative, explicit is default/zero)
+            // then its size should ideally be zero.
+            if (RelativeWidth <= 0 && RelativeHeight <= 0 && _explicitSize != Vector2.Zero)
+            {
+                // this.Size = Vector2.Zero; // Set to zero if it was something else
+            }
+            // If it has children, layout continues below. If not, effectively done.
+        }
+
+        // Determine the container's actual rendering width and height for child layout.
+        // This uses the Node2D.Size property, which considers _explicitSize (from YAML or Node2D default)
+        // and RelativeWidth/Height.
+        float currentContainerRenderWidth = this.Size.X;
+        float currentContainerRenderHeight = this.Size.Y;
+
+        // Adjust container's explicit height if it's not relatively sized and is smaller than content.
+        // This allows the container to grow vertically to fit children.
+        if (this.RelativeHeight == 0)
+        {
+            if (_explicitSize.Y < maxChildHeight) // Compare against _explicitSize.Y
+            {
+                // Update _explicitSize.Y to fit content and trigger SizeChanged
+                this.Size = new Vector2(_explicitSize.X, maxChildHeight); // This updates _explicitSize via setter
+                currentContainerRenderHeight = this.Size.Y; // Re-fetch potentially updated height
+            }
+            else if (visibleNode2DChildren.Any() && _explicitSize.Y == 0 && maxChildHeight > 0) // Handle if _explicitSize.Y was truly zero
+            {
+                this.Size = new Vector2(_explicitSize.X, maxChildHeight);
+                currentContainerRenderHeight = this.Size.Y;
+            }
+        }
+        // If no children and not relative, ensure explicit height is also cleared if width was cleared.
+        // This is more complex if we want perfect shrink-to-zero.
+        // For now, if no children, content width/height are 0, and layout below handles it.
+
+
+        float initialContentOffsetX = 0;
+        // Use the HBoxContainer's own HAlignment to position the block of children
+        // within its currentContainerRenderWidth.
+        switch (this.HAlignment)
+        {
+            case HAlignment.Left:
+                initialContentOffsetX = 0;
+                break;
+            case HAlignment.Center:
+                initialContentOffsetX = (currentContainerRenderWidth - totalRequiredContentWidth) / 2f;
+                break;
+            case HAlignment.Right:
+                initialContentOffsetX = currentContainerRenderWidth - totalRequiredContentWidth;
+                break;
+            case HAlignment.None: // Treat as Left
+            default:
+                initialContentOffsetX = 0;
+                break;
+        }
+
+        float currentX = initialContentOffsetX;
+        foreach (Node2D child in visibleNode2DChildren)
+        {
+            float childY = 0;
+            // Use child's VAlignment to position it vertically within the HBoxContainer's height.
+            switch (child.VAlignment)
+            {
+                case VAlignment.Top:
+                    childY = 0;
+                    break;
+                case VAlignment.Center:
+                    childY = (currentContainerRenderHeight / 2f) - (child.Size.Y / 2f);
+                    break;
+                case VAlignment.Bottom:
+                    childY = currentContainerRenderHeight - child.Size.Y;
+                    break;
+                case VAlignment.None: // Treat as Top
+                default:
+                    childY = 0;
+                    break;
+            }
+            child.Position = new Vector2(currentX, childY);
+
+            currentX += child.Size.X;
+            if (visibleNode2DChildren.IndexOf(child) < visibleNode2DChildren.Count - 1)
+            {
+                currentX += Separation;
+            }
+        }
     }
 }
 </file>
