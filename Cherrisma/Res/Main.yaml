@@ -5,6 +5,25 @@ children:
       MarginTop: 32
       HAlignment: Left
 
+    - Node: HBoxContainer::ButtonContainer
+      AnchorPreset: BottomCenter
+      HAlignment: Right # HBoxContainer will center its content (the buttons)
+      MarginBottom: 52
+      Separation: 8
+      children:
+        - Node: Button::ButtonPrevious
+          Text: "<"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+        - Node: Button::ButtonPlayPause
+          Text: "||"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+        - Node: Button::ButtonNext
+          Text: ">"
+          Size: [40, 26]
+          HAlignment: Left # Ensures button's origin is (0,y)
+
     - Node: HSlider::Slider
       AnchorPreset: BottomCenter
       Size: [300, 8]

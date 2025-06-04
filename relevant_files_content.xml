@@ -1,0 +1,1822 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<files>
+  <availableFiles>
+    <instructions>These are all files found in the specified directory. You can review these paths and request their contents if needed.</instructions>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Res\Main.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\Res\Main.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Res\Cherris\Config.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\Res\Cherris\Config.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\bin\Debug\net8.0\Res\Main.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\bin\Release\net8.0\Res\Main.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\bin\Debug\net9.0\Res\Main.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\bin\Debug\net8.0\Res\Cherris\Config.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\bin\Release\net8.0\Res\Cherris\Config.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\bin\Debug\net9.0\Res\Cherris\Config.yaml</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\MainScene.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\Program.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\AnchorPreset.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\BoxStyle.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ButtonStyle.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ButtonStylePack.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ClickServer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Configuration.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\DefaultTheme.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Direct2DAppWindow.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\DisplayServer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\DrawingContext.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\FileLoader.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\GlobalSuppressions.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\GlobalUsings.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\HAlignment.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Input.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\KeyCode.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Log.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\MainAppWindow.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ModalSecondaryWindow.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ModalWindowNode.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\MouseButtonCode.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\NativeMethods.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Node.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Node2D.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\NodeEmoji.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\RenderServer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\ResourceLoader.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\SecondaryWindow.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\SystemBackdropType.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Time.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Tween.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\VerticalAlignment.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\VisualItem.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Win32Window.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Camera.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Clickable.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\ClickableRectangle.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Control.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\VideoPlayer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\WindowNode.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Animation.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\AudioStream.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Font.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Shader.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\ShaderUniformDataType.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Sound.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Texture.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\NodePropertySetter.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\PackedScene.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\PackedSceneXml.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\ReflectionUtils.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\SceneTree.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\SceneTreeTimer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\StringExtensions.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\TypeResolverUtils.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Scene\ValueConversionUtils.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Servers\ApplicationServer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Debug\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Debug\net8.0\Cherris.AssemblyInfo.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Debug\net8.0\Cherris.GlobalUsings.g.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Release\net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Release\net8.0\Cherris.AssemblyInfo.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\obj\Release\net8.0\Cherris.GlobalUsings.g.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Button.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\AnimationCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\AudioStreamCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\FontCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\ShaderCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\SoundCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Resources\Cache\TextureCache.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\obj\Debug\net9.0\Cherrisma.AssemblyInfo.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherrisma\obj\Debug\net9.0\Cherrisma.GlobalUsings.g.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\CharacterSet.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\Class1.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.BaseText.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.Caret.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.PlaceholderTextDisplayer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.TextDisplayer.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\HSlider.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\HSliderDirection.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\Slider.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\SliderStyle.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\VSlider.cs</filePath>
+    <filePath>D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Slider\VSliderDirection.cs</filePath>
+  </availableFiles>
+  <relevantFiles>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Control.cs"><![CDATA[namespace Cherris;
+
+public class Control : ClickableRectangle
+{
+    public bool Focusable { get; set; } = true;
+    public bool Navigable { get; set; } = true;
+    public bool RapidNavigation { get; set; } = true;
+    public string? FocusNeighborTop { get; set; }
+    public string? FocusNeighborBottom { get; set; }
+    public string? FocusNeighborLeft { get; set; }
+    public string? FocusNeighborRight { get; set; }
+    public string? FocusNeighborNext { get; set; }
+    public string? FocusNeighborPrevious { get; set; }
+    public string AudioBus { get; set; } = "Master";
+    public Sound? FocusGainedSound { get; set; }
+
+    private bool wasFocusedLastFrame = false;
+    private readonly Dictionary<string, float> actionHoldTimes = [];
+    private const float InitialDelay = 0.5f;
+    private const float RepeatInterval = 0.1f;
+
+    public bool Disabled
+    {
+        get;
+        set
+        {
+            if (value == field)
+            {
+                return;
+            }
+
+            field = value;
+            WasDisabled?.Invoke(this);
+        }
+    } = false;
+
+    public bool Focused
+    {
+        get;
+        set
+        {
+            if (field == value)
+            {
+                return;
+            }
+            field = value;
+            FocusChanged?.Invoke(this);
+
+            if (field)
+            {
+                FocusGained?.Invoke(this);
+
+                if (FocusGainedSound is not null)
+                {
+                    FocusGainedSound?.Play(AudioBus);
+                }
+            }
+        }
+    } = false;
+
+    public string ThemeFile
+    {
+        set
+        {
+            OnThemeFileChanged(value);
+        }
+    }
+
+    // Events
+
+    public delegate void Event(Control control);
+    public event Event? FocusChanged;
+    public event Event? FocusGained;
+    public event Event? WasDisabled;
+    public event Event? ClickedOutside;
+
+    // Main
+
+    public override void Process()
+    {
+        base.Process();
+
+        if (Navigable && Focused && wasFocusedLastFrame)
+        {
+            HandleArrowNavigation();
+        }
+
+        UpdateFocusOnOutsideClicked();
+        wasFocusedLastFrame = Focused;
+    }
+
+    // Navigation
+
+    private void HandleArrowNavigation()
+    {
+        var actions = new (string Action, string? Path)[]
+        {
+            ("UiLeft", FocusNeighborLeft),
+            ("UiUp", FocusNeighborTop),
+            ("UiRight", FocusNeighborRight),
+            ("UiDown", FocusNeighborBottom),
+            ("UiNext", FocusNeighborNext),
+            ("UiPrevious", FocusNeighborPrevious)
+        };
+
+        foreach (var entry in actions)
+        {
+            if (string.IsNullOrEmpty(entry.Path)) continue;
+
+            if (RapidNavigation)
+            {
+                if (Input.IsActionDown(entry.Action))
+                {
+                    if (!actionHoldTimes.ContainsKey(entry.Action))
+                    {
+                        actionHoldTimes[entry.Action] = 0f;
+                    }
+
+                    actionHoldTimes[entry.Action] += Time.Delta;
+                    float holdTime = actionHoldTimes[entry.Action];
+
+                    bool shouldNavigate = (holdTime <= Time.Delta + float.Epsilon) ||
+                        (holdTime >= InitialDelay && (holdTime - InitialDelay) % RepeatInterval < Time.Delta);
+
+                    if (shouldNavigate)
+                    {
+                        NavigateToControl(entry.Path, entry.Action, holdTime);
+                    }
+                }
+                else
+                {
+                    actionHoldTimes[entry.Action] = 0f;
+                }
+            }
+            else
+            {
+                if (Input.IsActionPressed(entry.Action))
+                {
+                    NavigateToControl(entry.Path, entry.Action, 0f);
+                }
+            }
+        }
+    }
+
+    private void NavigateToControl(string controlPath, string action, float holdTime)
+    {
+        var neighbor = GetNodeOrNull<Control>(controlPath);
+
+        if (neighbor is null)
+        {
+            Log.Error($"[Control] [{Name}] NavigateToControl: Could not find '{controlPath}'.");
+            return;
+        }
+
+        if (neighbor.Disabled)
+        {
+            return;
+        }
+
+        if (RapidNavigation)
+        {
+            neighbor.actionHoldTimes[action] = holdTime;
+        }
+
+        neighbor.Focused = true;
+        Focused = false;
+    }
+
+    // Focus
+
+    private void UpdateFocusOnOutsideClicked()
+    {
+        if (!IsMouseOver() && Input.IsMouseButtonPressed(MouseButtonCode.Left))
+        {
+            Focused = false;
+            ClickedOutside?.Invoke(this);
+        }
+    }
+
+    protected virtual void HandleClickFocus()
+    {
+        if (Focusable && IsMouseOver())
+        {
+            Focused = true;
+        }
+    }
+
+    // Other
+
+    protected virtual void OnThemeFileChanged(string themeFile) { }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\Button.cs"><![CDATA[using Vortice.Mathematics;
+
+namespace Cherris;
+
+public class Button : Control
+{
+    public enum ActionMode { Release, Press }
+    public enum ClickBehavior { Left, Right, Both }
+
+    private bool pressedLeft = false;
+    private bool pressedRight = false;
+    private bool wasHovered = false;
+    private string displayedText = "";
+
+    public Vector2 TextOffset { get; set; } = Vector2.Zero;
+    public HAlignment TextHAlignment { get; set; } = HAlignment.Center;
+    public VAlignment TextVAlignment { get; set; } = VAlignment.Center;
+    public ButtonStylePack Styles { get; set; } = new();
+    public ActionMode LeftClickActionMode { get; set; } = ActionMode.Release;
+    public ActionMode RightClickActionMode { get; set; } = ActionMode.Release;
+    public ClickBehavior Behavior { get; set; } = ClickBehavior.Left;
+    public float AvailableWidth { get; set; } = 0;
+    public bool StayPressed { get; set; } = false;
+    public bool ClipText { get; set; } = false;
+    public bool AutoWidth { get; set; } = false;
+    public Vector2 TextMargin { get; set; } = new(2, 2);
+    public string Ellipsis { get; set; } = "...";
+    public Texture? Icon { get; set; } = null;
+    public float IconMargin { get; set; } = 12;
+    public Sound? ClickSound { get; set; }
+    public Sound? HoverSound { get; set; }
+
+    public string Text
+    {
+        get => displayedText; // Return displayedText which is updated by setter
+
+        set
+        {
+            if (displayedText == value) // Use displayedText for comparison
+            {
+                return;
+            }
+
+            displayedText = value; // Update displayedText
+            // The original 'field' is no longer needed if displayedText is used directly.
+        }
+    }
+
+    public event Action? LeftClicked;
+    public event Action? RightClicked;
+    public event Action? MouseEntered;
+    public event Action? MouseExited;
+
+    public Button()
+    {
+        Size = new(100, 26);
+        Offset = Vector2.Zero;
+        OriginPreset = OriginPreset.None;
+
+        WasDisabled += (button) =>
+        {
+            Styles.Current = Disabled
+            ? Styles.Disabled
+            : Styles.Normal;
+        };
+    }
+
+    public override void Process()
+    {
+        base.Process();
+
+        if (Disabled)
+        {
+            return;
+        }
+
+        HandleClicks();
+        HandleKeyboardInput();
+    }
+
+    protected virtual void OnEnterPressed() { }
+
+    private void HandleKeyboardInput()
+    {
+        bool enterPressed = Input.IsKeyPressed(KeyCode.Enter);
+
+        if (!Focused || !enterPressed)
+        {
+            return;
+        }
+
+        bool invoked = false;
+        if (Behavior == ClickBehavior.Left || Behavior == ClickBehavior.Both)
+        {
+            LeftClicked?.Invoke();
+            invoked = true;
+        }
+
+        if (Behavior == ClickBehavior.Right || Behavior == ClickBehavior.Both)
+        {
+            RightClicked?.Invoke();
+            invoked = true;
+        }
+
+        if (invoked)
+        {
+            ClickSound?.Play(AudioBus);
+            OnEnterPressed();
+        }
+    }
+
+    private void HandleClicks()
+    {
+        bool isMouseOver = IsMouseOver();
+        bool leftClickInvoked = false;
+        bool rightClickInvoked = false;
+
+        if (Behavior == ClickBehavior.Left || Behavior == ClickBehavior.Both)
+        {
+            leftClickInvoked = HandleSingleClick(
+                ref pressedLeft,
+                MouseButtonCode.Left,
+                LeftClickActionMode,
+                LeftClicked);
+        }
+
+        if (Behavior == ClickBehavior.Right || Behavior == ClickBehavior.Both)
+        {
+            rightClickInvoked = HandleSingleClick(
+                ref pressedRight,
+                MouseButtonCode.Right,
+                RightClickActionMode,
+                RightClicked);
+        }
+
+        HandleHover(isMouseOver);
+        UpdateTheme(isMouseOver, pressedLeft || pressedRight);
+    }
+
+    private bool HandleSingleClick(ref bool pressedState, MouseButtonCode button, ActionMode mode, Action? handler)
+    {
+        bool invoked = false;
+        bool mouseOver = IsMouseOver();
+        bool buttonPressedThisFrame = Input.IsMouseButtonPressed(button);
+        bool buttonReleasedThisFrame = Input.IsMouseButtonReleased(button);
+
+        if (mouseOver && buttonPressedThisFrame && !Disabled)
+        {
+            pressedState = true;
+            HandleClickFocus();
+
+            if (mode == ActionMode.Press)
+            {
+                handler?.Invoke();
+                ClickSound?.Play(AudioBus);
+                invoked = true;
+            }
+        }
+
+        if (!buttonReleasedThisFrame || !pressedState)
+        {
+            return invoked;
+        }
+
+        if (!Disabled && mouseOver && mode == ActionMode.Release)
+        {
+            handler?.Invoke();
+            ClickSound?.Play(AudioBus);
+            invoked = true;
+        }
+
+        if (!StayPressed)
+        {
+            pressedState = false;
+        }
+        else if (!mouseOver && mode == ActionMode.Release)
+        {
+            pressedState = false;
+        }
+        else if (mode == ActionMode.Press && !mouseOver)
+        {
+            pressedState = false;
+        }
+
+        return invoked;
+    }
+
+    private void HandleHover(bool isMouseOver)
+    {
+        if (Disabled)
+        {
+            if (wasHovered)
+            {
+                wasHovered = false;
+                MouseExited?.Invoke();
+            }
+
+            return;
+        }
+
+        if (isMouseOver && !wasHovered)
+        {
+            MouseEntered?.Invoke();
+            HoverSound?.Play(AudioBus);
+            wasHovered = true;
+        }
+        else if (wasHovered && !isMouseOver) // check !isMouseOver here
+        {
+            wasHovered = false;
+            MouseExited?.Invoke();
+        }
+    }
+
+    private void UpdateTheme(bool isMouseOver, bool isPressedForStayPressed)
+    {
+        if (Disabled)
+        {
+            Styles.Current = Styles.Disabled;
+            return;
+        }
+
+        bool isLeftDown = (Behavior == ClickBehavior.Left || Behavior == ClickBehavior.Both) && Input.IsMouseButtonDown(MouseButtonCode.Left);
+        bool isRightDown = (Behavior == ClickBehavior.Right || Behavior == ClickBehavior.Both) && Input.IsMouseButtonDown(MouseButtonCode.Right);
+
+        bool isPhysicallyHeldDown = isMouseOver && (isLeftDown || isRightDown);
+
+        if (isPressedForStayPressed && StayPressed)
+        {
+            Styles.Current = Styles.Pressed;
+        }
+        else if (isPhysicallyHeldDown)
+        {
+            Styles.Current = Styles.Pressed;
+        }
+        else if (Focused)
+        {
+            Styles.Current = isMouseOver ? Styles.Hover : Styles.Focused;
+        }
+        else if (isMouseOver)
+        {
+            Styles.Current = Styles.Hover;
+        }
+        else
+        {
+            Styles.Current = Styles.Normal;
+        }
+    }
+
+    protected override void OnThemeFileChanged(string themeFile)
+    {
+        Log.Warning($"OnThemeFileChanged not fully implemented for Button: {themeFile}");
+    }
+
+    public override void Draw(DrawingContext context)
+    {
+        if (!Visible)
+        {
+            return;
+        }
+
+        DrawButtonBackground(context);
+        DrawIcon(context); // Icon drawing logic moved here from DrawText for better layering
+        DrawButtonText(context);
+    }
+
+    protected virtual void DrawButtonBackground(DrawingContext context)
+    {
+        Vector2 position = GlobalPosition - Origin;
+        Vector2 size = ScaledSize;
+        Rect bounds = new(position.X, position.Y, size.X, size.Y);
+
+        DrawStyledRectangle(context, bounds, Styles.Current);
+    }
+
+    private void DrawIcon(DrawingContext context) // Kept private as it's Button-specific for now
+    {
+        if (Icon is null || context.RenderTarget is null)
+        {
+            return;
+        }
+
+        Log.Warning("DrawIcon is not implemented.");
+        // Placeholder for icon drawing logic
+        // Example:
+        // Vector2 iconPosition = CalculateIconPosition(); // Based on text, alignment, IconMargin
+        // context.RenderTarget.DrawBitmap(....);
+    }
+
+    protected virtual void DrawButtonText(DrawingContext context)
+    {
+        if (Styles.Current is null || string.IsNullOrEmpty(displayedText)) // Check if displayedText is empty
+        {
+            return;
+        }
+
+        Vector2 position = GlobalPosition - Origin;
+        Vector2 size = ScaledSize;
+
+        // Adjust text layout rect if icon is present
+        float textStartX = position.X + TextMargin.X + TextOffset.X;
+        float textAvailableWidth = Math.Max(0, size.X - TextMargin.X * 2);
+
+        if (Icon != null)
+        {
+            // This is a simplified adjustment. Real layout needs icon size.
+            // Assuming icon is on the left.
+            // float iconTotalWidth = Icon.Size.X + IconMargin;
+            // textStartX += iconTotalWidth;
+            // textAvailableWidth -= iconTotalWidth;
+            Log.Warning("Button.DrawButtonText icon adjustment not fully implemented.");
+        }
+
+
+        var textLayoutRect = new Rect(
+            textStartX,
+            position.Y + TextMargin.Y + TextOffset.Y,
+            textAvailableWidth,
+            Math.Max(0, size.Y - TextMargin.Y * 2)
+        );
+
+        // ClipDisplayedText(); // Call this before drawing if AutoWidth is not fitting text
+
+        DrawFormattedText(
+            context,
+            displayedText, // Use the Button's own displayedText
+            textLayoutRect,
+            Styles.Current,
+            TextHAlignment,
+            TextVAlignment
+        );
+    }
+
+    private void ResizeToFitText()
+    {
+        if (!AutoWidth || Styles?.Current is null)
+        {
+            return;
+        }
+
+        Log.Warning("ResizeToFitText requires DirectWrite implementation.");
+    }
+
+    private void ClipDisplayedText()
+    {
+        if (!ClipText || string.IsNullOrEmpty(Text) || Styles?.Current is null)
+        {
+            // If not clipping, displayedText should be the full Text.
+            // This assignment might be redundant if Text setter already updates displayedText.
+            // displayedText = Text; // This was 'this.Text', ensure it refers to Button's Text
+            return;
+        }
+
+        Log.Warning("ClipDisplayedText requires DirectWrite implementation.");
+
+        // Fallback: ensure displayedText is based on Button's Text property.
+        // displayedText = Text; // Ensure this refers to Button's Text.
+    }
+
+    private string GetTextClippedWithEllipsis(string input)
+    {
+        if (input.Length > Ellipsis.Length)
+        {
+            return input.Substring(0, input.Length - Ellipsis.Length) + Ellipsis;
+        }
+        return input;
+    }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.BaseText.cs"><![CDATA[using Vortice.Mathematics;
+
+namespace Cherris;
+
+public partial class LineEdit
+{
+    private abstract class BaseText : VisualItem
+    {
+        protected LineEdit parentLineEdit;
+        private Vector2 _textOffset = Vector2.Zero; // Local offset within LineEdit
+
+        public BaseText(LineEdit parent)
+        {
+            parentLineEdit = parent;
+            // Ensure these components are not processed by SceneTree independently for drawing
+            // unless explicitly added as children and made visible.
+            // LineEdit will call their Draw methods.
+            Visible = false;
+        }
+
+        public Vector2 TextOffset
+        {
+            get => _textOffset;
+            set => _textOffset = value;
+        }
+
+        public override void Draw(DrawingContext context)
+        {
+            if (!parentLineEdit.Visible || ShouldSkipDrawing() || string.IsNullOrEmpty(GetTextToDisplay()))
+            {
+                return;
+            }
+
+            Rect layoutRect = GetLayoutRect();
+
+            parentLineEdit.DrawFormattedText(
+                context,
+                GetTextToDisplay(),
+                layoutRect,
+                parentLineEdit.Styles.Current, // Text color and font from ButtonStyle
+                HAlignment.Left,    // Text within LineEdit is typically left-aligned
+                VAlignment.Center); // And vertically centered
+        }
+
+        protected Rect GetLayoutRect()
+        {
+            // This is the visual top-left of the LineEdit box itself
+            Vector2 lineEditVisualTopLeft = parentLineEdit.GlobalPosition - parentLineEdit.Origin;
+            Vector2 lineEditSize = parentLineEdit.Size;
+
+            // Text area starts after TextOrigin.X from the *visual left* of LineEdit,
+            // and TextOrigin.Y from the *visual top* of LineEdit.
+            float textRenderAreaX = lineEditVisualTopLeft.X + parentLineEdit.TextOrigin.X + TextOffset.X;
+            // Corrected Y to be relative to the visual top of the LineEdit
+            float textRenderAreaY = lineEditVisualTopLeft.Y + parentLineEdit.TextOrigin.Y + TextOffset.Y;
+
+            // Width available for text
+            float textRenderAreaWidth = lineEditSize.X - parentLineEdit.TextOrigin.X * 2; // Horizontal padding on both sides
+            // Height available for text (full height of LineEdit minus vertical padding)
+            // Since TextOrigin.Y is 0 for LineEdit, this is currently lineEditSize.Y
+            float textRenderAreaHeight = lineEditSize.Y - parentLineEdit.TextOrigin.Y * 2;
+
+            return new Rect(textRenderAreaX, textRenderAreaY, Math.Max(0, textRenderAreaWidth), Math.Max(0, textRenderAreaHeight));
+        }
+
+        protected abstract string GetTextToDisplay();
+        protected abstract bool ShouldSkipDrawing();
+    }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.Caret.cs"><![CDATA[using System.Globalization; // For CultureInfo if needed for measurements
+using Vortice.DirectWrite;
+using Vortice.Mathematics;
+
+namespace Cherris;
+
+public partial class LineEdit
+{
+    protected class Caret : VisualItem
+    {
+        public float MaxTime { get; set; } = 0.5f;
+        private const byte MinAlphaByte = 0;
+        private const byte MaxAlphaByte = 255;
+        private float _timer = 0;
+        private float _alpha = 1.0f; // Use float for Color4 alpha
+        private LineEdit _parentLineEdit;
+
+        private float _arrowKeyTimer = 0f;
+        private const float ArrowKeyDelay = 0.4f;
+        private const float ArrowKeySpeed = 0.04f;
+        private bool _movingRight = false; // To track continuous movement direction
+
+        private int _caretDisplayPositionX; // Position relative to the start of visible text
+        public int CaretDisplayPositionX
+        {
+            get => _caretDisplayPositionX;
+            set
+            {
+                var maxVisibleChars = Math.Max(0, Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex));
+                _caretDisplayPositionX = Math.Clamp(value, 0, maxVisibleChars);
+                _alpha = 1.0f; // Reset blink
+                _timer = 0f;   // Reset blink timer
+            }
+        }
+
+        public Caret(LineEdit parent)
+        {
+            _parentLineEdit = parent;
+            Visible = false; // Drawn by LineEdit explicitly
+        }
+
+        public void UpdateLogic() // Renamed from Update to avoid confusion with Node.Process
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable) return;
+
+            HandleKeyboardInput();
+            HandleMouseInput();
+            UpdateAlpha();
+        }
+
+        public override void Draw(DrawingContext context)
+        {
+            if (!_parentLineEdit.Selected || !_parentLineEdit.Editable || !Visible || _alpha <= 0.01f)
+            {
+                return;
+            }
+
+            Rect layoutRect = GetCaretLayoutRect(context);
+            if (layoutRect.Width <= 0 || layoutRect.Height <= 0) return;
+
+            ButtonStyle caretStyle = new ButtonStyle
+            {
+                FontName = _parentLineEdit.Styles.Current.FontName,
+                FontSize = _parentLineEdit.Styles.Current.FontSize,
+                FontWeight = _parentLineEdit.Styles.Current.FontWeight,
+                FontStyle = _parentLineEdit.Styles.Current.FontStyle,
+                FontStretch = _parentLineEdit.Styles.Current.FontStretch,
+                FontColor = new Color4(_parentLineEdit.Styles.Current.FontColor.R, _parentLineEdit.Styles.Current.FontColor.G, _parentLineEdit.Styles.Current.FontColor.B, _alpha),
+                WordWrapping = WordWrapping.NoWrap
+            };
+
+            _parentLineEdit.DrawFormattedText(
+                context,
+                "|",
+                layoutRect,
+                caretStyle,
+                HAlignment.Left,
+                VAlignment.Center);
+        }
+
+        private void HandleKeyboardInput()
+        {
+            bool rightPressed = Input.IsKeyPressed(KeyCode.RightArrow);
+            bool leftPressed = Input.IsKeyPressed(KeyCode.LeftArrow);
+
+            if (rightPressed || leftPressed)
+            {
+                _movingRight = rightPressed;
+                _arrowKeyTimer = 0f;
+                MoveCaret(_movingRight ? 1 : -1);
+            }
+            else if (Input.IsKeyDown(KeyCode.RightArrow) || Input.IsKeyDown(KeyCode.LeftArrow))
+            {
+                // Update direction if key state changes during hold
+                if (Input.IsKeyDown(KeyCode.RightArrow)) _movingRight = true;
+                else if (Input.IsKeyDown(KeyCode.LeftArrow)) _movingRight = false;
+
+                _arrowKeyTimer += Time.Delta;
+                if (_arrowKeyTimer >= ArrowKeyDelay)
+                {
+                    // Check if it's time for a repeat based on ArrowKeySpeed
+                    // This is a simplified way to handle repeat interval
+                    if ((_arrowKeyTimer - ArrowKeyDelay) % ArrowKeySpeed < Time.Delta) // Ensures one move per interval window
+                    {
+                        MoveCaret(_movingRight ? 1 : -1);
+                    }
+                }
+            }
+            else // No arrow keys down
+            {
+                _arrowKeyTimer = 0f;
+            }
+        }
+
+        private void HandleMouseInput()
+        {
+            if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
+            {
+                Vector2 localMousePos = _parentLineEdit.GetLocalMousePosition(); // Mouse pos relative to LineEdit's window
+
+                // Check if click is within LineEdit's bounds
+                // Using visual top-left for hit testing
+                Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
+                Rect lineEditBounds = new Rect(
+                    lineEditVisualTopLeft.X, lineEditVisualTopLeft.Y,
+                    _parentLineEdit.Size.X, _parentLineEdit.Size.Y);
+
+                if (lineEditBounds.Contains(localMousePos.X, localMousePos.Y))
+                {
+                    MoveCaretToMousePosition(localMousePos);
+                }
+            }
+        }
+
+
+        private void MoveCaret(int direction)
+        {
+            // This moves the logical caret position (_parentLineEdit.CaretLogicalPosition)
+            // And then updates display position and start index.
+
+            int newLogicalPos = _parentLineEdit.CaretLogicalPosition + direction;
+            _parentLineEdit.CaretLogicalPosition = Math.Clamp(newLogicalPos, 0, _parentLineEdit.Text.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+        public void MoveCaretToMousePosition(Vector2 localMousePos) // localMousePos is relative to owning window
+        {
+            if (_parentLineEdit.Text.Length == 0)
+            {
+                _parentLineEdit.CaretLogicalPosition = 0;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            var owningWindow = _parentLineEdit.GetOwningWindow() as Direct2DAppWindow;
+            if (owningWindow == null || owningWindow.DWriteFactory == null) return; // Cannot measure text
+            IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
+
+            // Calculate the visual top-left of the LineEdit's actual rendering box
+            Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
+            // Calculate the top-left of the text rendering area (inside padding/TextOrigin)
+            Vector2 textRenderAreaVisualTopLeft = lineEditVisualTopLeft + _parentLineEdit.TextOrigin;
+
+            // Mouse X relative to the start of the text rendering area within LineEdit
+            float mouseXInTextRenderArea = localMousePos.X - textRenderAreaVisualTopLeft.X;
+
+
+            string visibleText = _parentLineEdit.Text.Substring(
+                _parentLineEdit.TextStartIndex,
+                Math.Min(_parentLineEdit.GetDisplayableCharactersCount(), _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex)
+            );
+
+            if (string.IsNullOrEmpty(visibleText))
+            {
+                _parentLineEdit.CaretLogicalPosition = (mouseXInTextRenderArea < 0 && _parentLineEdit.TextStartIndex > 0) ? _parentLineEdit.TextStartIndex : _parentLineEdit.TextStartIndex;
+                _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+                return;
+            }
+
+            IDWriteTextFormat? textFormat = owningWindow.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+            if (textFormat == null) return;
+
+            using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                visibleText,
+                textFormat,
+                _parentLineEdit.Size.X,
+                _parentLineEdit.Size.Y
+            );
+
+            textLayout.WordWrapping = WordWrapping.NoWrap;
+
+            textLayout.HitTestPoint(mouseXInTextRenderArea, 0, out var isTrailingHit, out var isInside, out var metrics);
+
+            int newCaretIndexInVisibleText = (int)metrics.TextPosition;
+            if (isTrailingHit) newCaretIndexInVisibleText = (int)metrics.TextPosition + (int)metrics.Length;
+
+
+            _parentLineEdit.CaretLogicalPosition = _parentLineEdit.TextStartIndex + Math.Clamp(newCaretIndexInVisibleText, 0, visibleText.Length);
+            _parentLineEdit.UpdateCaretDisplayPositionAndStartIndex();
+        }
+
+
+        private Rect GetCaretLayoutRect(DrawingContext context)
+        {
+            // Determine the visual top-left of the LineEdit's box
+            Vector2 lineEditVisualTopLeft = _parentLineEdit.GlobalPosition - _parentLineEdit.Origin;
+            // Determine the visual top-left of the text rendering area (inside TextOrigin padding)
+            Vector2 textRenderAreaVisualTopLeft = lineEditVisualTopLeft + _parentLineEdit.TextOrigin;
+
+            float caretXOffset = 0;
+
+            if (CaretDisplayPositionX > 0 && _parentLineEdit.Text.Length > 0)
+            {
+                // Ensure that the substring length does not exceed available characters from TextStartIndex
+                int lengthOfTextBeforeCaretInVisiblePortion = Math.Min(CaretDisplayPositionX, _parentLineEdit.Text.Length - _parentLineEdit.TextStartIndex);
+
+                if (lengthOfTextBeforeCaretInVisiblePortion > 0) // Only measure if there's actual text
+                {
+                    string textBeforeCaret = _parentLineEdit.Text.Substring(
+                        _parentLineEdit.TextStartIndex,
+                        lengthOfTextBeforeCaretInVisiblePortion
+                    );
+
+                    if (!string.IsNullOrEmpty(textBeforeCaret)) // Double check, though lengthOfTextBeforeCaretInVisiblePortion > 0 should mean it's not empty
+                    {
+                        var dwriteFactory = context.DWriteFactory;
+                        var owningWindow = context.OwnerWindow;
+                        IDWriteTextFormat? textFormat = owningWindow?.GetOrCreateTextFormat(_parentLineEdit.Styles.Current);
+
+                        if (textFormat != null)
+                        {
+                            textFormat.WordWrapping = WordWrapping.NoWrap;
+                            using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+                                textBeforeCaret,
+                                textFormat,
+                                float.MaxValue,
+                                _parentLineEdit.Size.Y);
+                            caretXOffset = textLayout.Metrics.WidthIncludingTrailingWhitespace; // Use WidthIncludingTrailingWhitespace
+                        }
+                    }
+                }
+            }
+
+            float caretWidth = _parentLineEdit.MeasureSingleCharWidth(context, "|", _parentLineEdit.Styles.Current);
+            if (caretWidth <= 0) caretWidth = 2;
+
+            float caretRectX = textRenderAreaVisualTopLeft.X + caretXOffset - caretWidth / 2f;
+            float caretRectY = textRenderAreaVisualTopLeft.Y;
+            // Caret height should be consistent with the text layout height
+            float caretRectHeight = _parentLineEdit.Size.Y - _parentLineEdit.TextOrigin.Y * 2;
+
+
+            return new Rect(
+                caretRectX,
+                caretRectY,
+                caretWidth,
+                Math.Max(0, caretRectHeight)
+            );
+        }
+
+
+        private void UpdateAlpha()
+        {
+            _timer += Time.Delta;
+            if (_timer > MaxTime)
+            {
+                _alpha = (_alpha == 1.0f) ? 0.0f : 1.0f;
+                _timer = 0;
+            }
+        }
+    }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.cs"><![CDATA[using System.Globalization;
+using SharpGen.Runtime;
+using Vortice.DirectWrite;
+
+namespace Cherris;
+
+public partial class LineEdit : Button
+{
+    public static readonly Vector2 DefaultLineEditSize = new(200, 28);
+
+    private string _text = "";
+    public new string Text
+    {
+        get => _text;
+        set
+        {
+            if (_text == value) return;
+
+            string oldText = _text;
+            _text = value ?? "";
+
+            if (_text.Length > MaxCharacters)
+            {
+                _text = _text.Substring(0, MaxCharacters);
+            }
+
+            UpdateCaretDisplayPositionAndStartIndex();
+            TextChanged?.Invoke(this, _text);
+            if (oldText.Length == 0 && _text.Length > 0)
+            {
+                FirstCharacterEntered?.Invoke(this, EventArgs.Empty);
+            }
+            if (oldText.Length > 0 && _text.Length == 0)
+            {
+                Cleared?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    public string PlaceholderText { get; set; } = "";
+    public Vector2 TextOrigin { get; set; } = new(6, 0);
+    public int MaxCharacters { get; set; } = int.MaxValue;
+    public List<char> ValidCharacters { get; set; } = [];
+
+    public bool Selected
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            _caret.Visible = field && Editable;
+            if (!field) _caret.CaretDisplayPositionX = 0;
+        }
+    } = false;
+
+    public bool Editable { get; set; } = true;
+    public bool ExpandWidthToText { get; set; } = false;
+    public bool Secret { get; set; } = false;
+    public char SecretCharacter { get; set; } = '*';
+    public bool AutoScrollToShowFullText { get; set; } = true;
+
+    public int TextStartIndex { get; internal set; } = 0;
+
+    internal int CaretLogicalPosition { get; set; } = 0;
+
+    public event EventHandler? FirstCharacterEntered;
+    public event EventHandler? Cleared;
+    public event EventHandler<string>? TextChanged;
+    public event EventHandler<string>? Confirmed;
+
+    private readonly Caret _caret;
+    private readonly TextDisplayer _textDisplayer;
+    private readonly PlaceholderTextDisplayer _placeholderTextDisplayer;
+
+    private const float BackspaceDelay = 0.5f;
+    private const float BackspaceSpeed = 0.05f;
+    private const float UndoDelay = 0.5f;
+    private const float UndoSpeed = 0.05f;
+
+    private float _backspaceTimer = 0f;
+    private bool _backspaceHeld = false;
+    private float _undoTimer = 0f;
+    private bool _undoHeld = false;
+    private bool _backspaceCtrlHeld = false;
+
+    private readonly Stack<LineEditState> _undoStack = new();
+    private readonly Stack<LineEditState> _redoStack = new();
+    private const int HistoryLimit = 50;
+
+    private char? _pendingCharInput = null;
+
+    public LineEdit()
+    {
+        _caret = new Caret(this);
+        _textDisplayer = new TextDisplayer(this);
+        _placeholderTextDisplayer = new PlaceholderTextDisplayer(this);
+
+        Visible = true;
+        Size = DefaultLineEditSize;
+        TextHAlignment = HAlignment.Left;
+        TextVAlignment = VAlignment.Center;
+
+        Text = "Type here...";
+
+        Styles.Normal.BorderLength = 1;
+        Styles.Focused.BorderLength = 1;
+        Styles.Focused.BorderColor = DefaultTheme.FocusBorder;
+
+        FocusChanged += OnFocusChangedHandler;
+        LeftClicked += OnLeftClickedHandler;
+        ClickedOutside += OnClickedOutsideHandler;
+        LayerChanged += OnLayerChangedHandler;
+        SizeChanged += OnSizeChangedHandler;
+    }
+
+    public override void Process()
+    {
+        base.Process();
+        CaptureCharInput();
+
+        if (Editable && Selected)
+        {
+            HandleCharacterInput();
+            HandleBackspace();
+            HandleDelete();
+            HandleHomeEndKeys();
+            HandleClipboardPaste();
+            HandleUndoRedo();
+            ConfirmOnEnter();
+        }
+        _caret.UpdateLogic();
+        UpdateSizeToFitTextIfEnabled();
+    }
+
+    public override void Draw(DrawingContext context)
+    {
+        base.Draw(context);
+        _placeholderTextDisplayer.Draw(context);
+        _textDisplayer.Draw(context);
+
+        if (Selected && Editable)
+        {
+            _caret.Visible = true;
+            _caret.Draw(context);
+        }
+        else
+        {
+            _caret.Visible = false;
+        }
+    }
+
+    private void CaptureCharInput()
+    {
+        if (_pendingCharInput == null)
+        {
+            _pendingCharInput = Input.ConsumeNextTypedChar();
+        }
+    }
+
+    protected override void OnEnterPressed()
+    {
+        if (Editable)
+        {
+            ConfirmAction();
+        }
+    }
+
+    private void OnFocusChangedHandler(Control control)
+    {
+        Selected = control.Focused;
+    }
+
+    private void OnLeftClickedHandler()
+    {
+        if (Editable)
+        {
+            Selected = true;
+        }
+    }
+
+    private void OnClickedOutsideHandler(Control control)
+    {
+        if (Selected)
+        {
+            Selected = false;
+        }
+    }
+
+    private void OnLayerChangedHandler(VisualItem sender, int layer)
+    {
+    }
+
+    private void OnSizeChangedHandler(object? sender, Vector2 newSize)
+    {
+        TextStartIndex = 0;
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private void UpdateSizeToFitTextIfEnabled()
+    {
+        if (!ExpandWidthToText || !Visible) return;
+
+        var owningWindow = GetOwningWindow() as Direct2DAppWindow;
+        if (owningWindow == null || owningWindow.DWriteFactory == null) return;
+        IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
+
+        string textToMeasure = string.IsNullOrEmpty(Text) ? PlaceholderText : Text;
+        if (string.IsNullOrEmpty(textToMeasure))
+        {
+            Size = new Vector2(TextOrigin.X * 2 + 20, Size.Y);
+            return;
+        }
+
+        float measuredWidth = MeasureTextWidth(dwriteFactory, textToMeasure, Styles.Current);
+        Size = new Vector2(measuredWidth + TextOrigin.X * 2, Size.Y);
+    }
+
+    internal float MeasureTextWidth(IDWriteFactory dwriteFactory, string text, ButtonStyle style)
+    {
+        if (string.IsNullOrEmpty(text)) return 0f;
+
+        using IDWriteTextFormat textFormat = dwriteFactory.CreateTextFormat(
+            style.FontName, null, style.FontWeight, style.FontStyle, style.FontStretch, style.FontSize, CultureInfo.CurrentCulture.Name);
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(text, textFormat, float.MaxValue, float.MaxValue);
+        return textLayout.Metrics.WidthIncludingTrailingWhitespace;
+    }
+
+    internal float MeasureSingleCharWidth(DrawingContext context, string character, ButtonStyle style)
+    {
+        if (string.IsNullOrEmpty(character)) return 0f;
+        IDWriteFactory dwriteFactory = context.DWriteFactory;
+        if (dwriteFactory == null) return 0f;
+
+        using IDWriteTextFormat textFormat = dwriteFactory.CreateTextFormat(
+            style.FontName, null, style.FontWeight, style.FontStyle, style.FontStretch, style.FontSize, CultureInfo.CurrentCulture.Name);
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(character, textFormat, float.MaxValue, float.MaxValue);
+        return textLayout.Metrics.Width;
+    }
+
+    public void Insert(string textToInsert)
+    {
+        if (!Editable || string.IsNullOrEmpty(textToInsert)) return;
+
+        PushStateForUndo();
+        foreach (char c in textToInsert)
+        {
+            InsertCharacterLogic(c);
+        }
+    }
+
+    private void HandleCharacterInput()
+    {
+        if (!_pendingCharInput.HasValue)
+        {
+            return;
+        }
+
+        char typedChar = _pendingCharInput.Value;
+        _pendingCharInput = null;
+
+        if (Text.Length >= MaxCharacters)
+        {
+            return;
+        }
+
+        if (ValidCharacters.Count != 0 && !ValidCharacters.Contains(typedChar))
+        {
+            return;
+        }
+
+        PushStateForUndo();
+        InsertCharacterLogic(typedChar);
+    }
+
+    private void InsertCharacterLogic(char c)
+    {
+        if (Text.Length >= MaxCharacters) return;
+
+        Text = Text.Insert(CaretLogicalPosition, c.ToString());
+        CaretLogicalPosition++;
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private void HandleBackspace()
+    {
+        bool ctrlHeld = Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl);
+
+        if (Input.IsKeyPressed(KeyCode.Backspace))
+        {
+            _backspaceHeld = true;
+            _backspaceTimer = 0f;
+            _backspaceCtrlHeld = ctrlHeld;
+            PerformBackspaceAction(_backspaceCtrlHeld);
+        }
+        else if (Input.IsKeyDown(KeyCode.Backspace) && _backspaceHeld)
+        {
+            _backspaceTimer += Time.Delta;
+            if (_backspaceTimer >= BackspaceDelay)
+            {
+                if ((_backspaceTimer - BackspaceDelay) % BackspaceSpeed < Time.Delta)
+                {
+                    PerformBackspaceAction(_backspaceCtrlHeld);
+                }
+            }
+        }
+        else if (Input.IsKeyReleased(KeyCode.Backspace))
+        {
+            _backspaceHeld = false;
+            _backspaceTimer = 0f;
+        }
+    }
+
+    private void PerformBackspaceAction(bool isCtrlHeld)
+    {
+        if (Text.Length == 0 || CaretLogicalPosition == 0) return;
+
+        PushStateForUndo();
+        if (isCtrlHeld)
+        {
+            int originalCaretPos = CaretLogicalPosition;
+            int wordStart = FindPreviousWordStart(Text, originalCaretPos);
+            Text = Text.Remove(wordStart, originalCaretPos - wordStart);
+            CaretLogicalPosition = wordStart;
+        }
+        else
+        {
+            Text = Text.Remove(CaretLogicalPosition - 1, 1);
+            CaretLogicalPosition--;
+        }
+        UpdateCaretDisplayPositionAndStartIndex();
+    }
+
+    private int FindPreviousWordStart(string text, int currentPos)
+    {
+        if (currentPos == 0) return 0;
+        int pos = currentPos - 1;
+        while (pos > 0 && char.IsWhiteSpace(text[pos])) pos--;
+        while (pos > 0 && !char.IsWhiteSpace(text[pos - 1])) pos--;
+        return pos;
+    }
+
+    private void HandleDelete()
+    {
+        if (Input.IsKeyPressed(KeyCode.Delete))
+        {
+            if (CaretLogicalPosition < Text.Length)
+            {
+                PushStateForUndo();
+                Text = Text.Remove(CaretLogicalPosition, 1);
+                UpdateCaretDisplayPositionAndStartIndex();
+            }
+        }
+    }
+
+    private void HandleHomeEndKeys()
+    {
+        if (Input.IsKeyPressed(KeyCode.Home))
+        {
+            CaretLogicalPosition = 0;
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+        else if (Input.IsKeyPressed(KeyCode.End))
+        {
+            CaretLogicalPosition = Text.Length;
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    private void HandleClipboardPaste()
+    {
+        if ((Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl)) && Input.IsKeyPressed(KeyCode.V))
+        {
+            try
+            {
+                string clipboardText = "";
+                Log.Warning("Clipboard.GetText() is currently disabled. Project setup required for System.Windows.Forms.");
+
+                if (!string.IsNullOrEmpty(clipboardText))
+                {
+                    clipboardText = clipboardText.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                    Insert(clipboardText);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error pasting from clipboard: {ex.Message}");
+            }
+        }
+    }
+
+    private void HandleUndoRedo()
+    {
+        bool ctrlHeld = Input.IsKeyDown(KeyCode.LeftControl) || Input.IsKeyDown(KeyCode.RightControl);
+
+        if (ctrlHeld && Input.IsKeyPressed(KeyCode.Z))
+        {
+            _undoHeld = true;
+            _undoTimer = 0f;
+            Undo();
+        }
+        else if (ctrlHeld && Input.IsKeyDown(KeyCode.Z) && _undoHeld)
+        {
+            _undoTimer += Time.Delta;
+            if (_undoTimer >= UndoDelay)
+            {
+                if ((_undoTimer - UndoDelay) % UndoSpeed < Time.Delta)
+                {
+                    Undo();
+                }
+            }
+        }
+        else if (Input.IsKeyReleased(KeyCode.Z))
+        {
+            _undoHeld = false;
+            _undoTimer = 0f;
+        }
+
+        if (ctrlHeld && Input.IsKeyPressed(KeyCode.Y))
+        {
+            Redo();
+        }
+    }
+
+    private void ConfirmOnEnter()
+    {
+        if (Input.IsKeyPressed(KeyCode.Enter))
+        {
+            ConfirmAction();
+        }
+    }
+
+    private void ConfirmAction()
+    {
+        Selected = false;
+        Confirmed?.Invoke(this, Text);
+    }
+
+    internal IDWriteFactory? GetDWriteFactory()
+    {
+        var owningWindow = GetOwningWindow() as Direct2DAppWindow;
+        return owningWindow?.DWriteFactory;
+    }
+
+    internal int GetDisplayableCharactersCount()
+    {
+        if (Size.X <= TextOrigin.X * 2) return 0;
+
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0) return 0;
+
+        IDWriteFactory? dwriteFactory = GetDWriteFactory();
+        if (dwriteFactory == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+
+        if (TextStartIndex >= Text.Length && Text.Length > 0)
+        {
+            return 0;
+        }
+        if (Text.Length == 0) return 0;
+
+        string textToMeasure = Text.Substring(TextStartIndex);
+        if (string.IsNullOrEmpty(textToMeasure)) return 0;
+
+        IDWriteTextFormat? textFormat = (GetOwningWindow() as Direct2DAppWindow)?.GetOrCreateTextFormat(Styles.Current);
+        if (textFormat == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+            textToMeasure,
+            textFormat,
+            float.MaxValue,
+            Size.Y
+        );
+
+        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[textToMeasure.Length];
+        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
+
+        if (result.Failure)
+        {
+            Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
+            return (int)(availableWidth / 8);
+        }
+
+        if (actualClusterCount == 0) return 0;
+
+        float currentCumulativeWidth = 0;
+        int displayableCharacterLengthInSubstring = 0;
+
+        for (int i = 0; i < actualClusterCount; i++)
+        {
+            ClusterMetrics cluster = clusterMetricsBuffer[i];
+            if (currentCumulativeWidth + cluster.Width <= availableWidth)
+            {
+                currentCumulativeWidth += cluster.Width;
+                displayableCharacterLengthInSubstring += (int)cluster.Length;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return displayableCharacterLengthInSubstring;
+    }
+
+    internal void UpdateCaretDisplayPositionAndStartIndex()
+    {
+        if (Text.Length == 0)
+        {
+            TextStartIndex = 0;
+            _caret.CaretDisplayPositionX = 0;
+            CaretLogicalPosition = 0;
+            return;
+        }
+
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0)
+        {
+            TextStartIndex = 0;
+            _caret.CaretDisplayPositionX = 0;
+            return;
+        }
+
+        if (AutoScrollToShowFullText)
+        {
+            IDWriteFactory? dwriteFactory = GetDWriteFactory();
+            if (dwriteFactory != null)
+            {
+                float fullTextWidth = MeasureTextWidth(dwriteFactory, Text, Styles.Current);
+                if (fullTextWidth <= availableWidth)
+                {
+                    TextStartIndex = 0;
+                    _caret.CaretDisplayPositionX = CaretLogicalPosition;
+                    return;
+                }
+            }
+        }
+
+        int displayableChars = GetDisplayableCharactersCount();
+        if (displayableChars <= 0 && Text.Length > 0)
+        {
+            TextStartIndex = CaretLogicalPosition;
+            _caret.CaretDisplayPositionX = 0;
+            TextStartIndex = Math.Clamp(TextStartIndex, 0, Text.Length);
+            return;
+        }
+
+        if (AutoScrollToShowFullText)
+        {
+            int maxVisibleChars = GetDisplayableCharactersCount(0);
+            if (maxVisibleChars > displayableChars && TextStartIndex > 0)
+            {
+                int charactersToShow = maxVisibleChars - displayableChars;
+                TextStartIndex = Math.Max(0, TextStartIndex - charactersToShow);
+                displayableChars = GetDisplayableCharactersCount();
+            }
+        }
+
+        if (CaretLogicalPosition < TextStartIndex)
+        {
+            TextStartIndex = CaretLogicalPosition;
+        }
+        else if (CaretLogicalPosition >= TextStartIndex + displayableChars)
+        {
+            TextStartIndex = CaretLogicalPosition - displayableChars + 1;
+        }
+
+        TextStartIndex = Math.Max(0, TextStartIndex);
+        if (TextStartIndex + displayableChars > Text.Length && displayableChars > 0)
+        {
+            TextStartIndex = Math.Max(0, Text.Length - displayableChars);
+        }
+        TextStartIndex = Math.Clamp(TextStartIndex, 0, Math.Max(0, Text.Length - 1));
+
+        _caret.CaretDisplayPositionX = CaretLogicalPosition - TextStartIndex;
+        _caret.CaretDisplayPositionX = Math.Clamp(_caret.CaretDisplayPositionX, 0, displayableChars > 0 ? displayableChars : 0);
+    }
+
+    private int GetDisplayableCharactersCount(int startIndex)
+    {
+        if (Size.X <= TextOrigin.X * 2) return 0;
+
+        float availableWidth = Size.X - TextOrigin.X * 2;
+        if (availableWidth <= 0) return 0;
+
+        IDWriteFactory? dwriteFactory = GetDWriteFactory();
+        if (dwriteFactory == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: DWriteFactory not available. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+
+        if (startIndex >= Text.Length && Text.Length > 0) return 0;
+        if (Text.Length == 0) return 0;
+
+        string textToMeasure = Text.Substring(startIndex);
+        if (string.IsNullOrEmpty(textToMeasure)) return 0;
+
+        IDWriteTextFormat? textFormat = (GetOwningWindow() as Direct2DAppWindow)?.GetOrCreateTextFormat(Styles.Current);
+        if (textFormat == null)
+        {
+            Log.Warning("LineEdit.GetDisplayableCharactersCount: Could not get TextFormat. Falling back to rough estimate.");
+            return (int)(availableWidth / 8);
+        }
+        textFormat.WordWrapping = WordWrapping.NoWrap;
+
+        using IDWriteTextLayout textLayout = dwriteFactory.CreateTextLayout(
+            textToMeasure,
+            textFormat,
+            float.MaxValue,
+            Size.Y
+        );
+
+        ClusterMetrics[] clusterMetricsBuffer = new ClusterMetrics[textToMeasure.Length];
+        Result result = textLayout.GetClusterMetrics(clusterMetricsBuffer, out uint actualClusterCount);
+
+        if (result.Failure)
+        {
+            Log.Error($"LineEdit.GetDisplayableCharactersCount: GetClusterMetrics failed with HRESULT {result.Code}");
+            return (int)(availableWidth / 8);
+        }
+
+        if (actualClusterCount == 0) return 0;
+
+        float currentCumulativeWidth = 0;
+        int displayableCharacterLengthInSubstring = 0;
+
+        for (int i = 0; i < actualClusterCount; i++)
+        {
+            ClusterMetrics cluster = clusterMetricsBuffer[i];
+            if (currentCumulativeWidth + cluster.Width <= availableWidth)
+            {
+                currentCumulativeWidth += cluster.Width;
+                displayableCharacterLengthInSubstring += (int)cluster.Length;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return displayableCharacterLengthInSubstring;
+    }
+
+    private void PushStateForUndo()
+    {
+        if (_undoStack.Count > 0 && _undoStack.Peek().Text == _text && _undoStack.Peek().CaretPosition == CaretLogicalPosition)
+        {
+            return;
+        }
+        if (_undoStack.Count >= HistoryLimit)
+        {
+            var tempList = _undoStack.ToList();
+            tempList.RemoveAt(0);
+            _undoStack.Clear();
+            foreach (var state in tempList.AsEnumerable().Reverse())
+            {
+                _undoStack.Push(state);
+            }
+        }
+        _undoStack.Push(new LineEditState(_text, CaretLogicalPosition, TextStartIndex));
+        _redoStack.Clear();
+    }
+
+    public void Undo()
+    {
+        if (_undoStack.Count > 0)
+        {
+            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            _redoStack.Push(currentState);
+            if (_redoStack.Count > HistoryLimit)
+            {
+                var tempList = _redoStack.ToList();
+                tempList.RemoveAt(0);
+                _redoStack.Clear();
+                foreach (var state in tempList.AsEnumerable().Reverse())
+                {
+                    _redoStack.Push(state);
+                }
+            }
+
+            LineEditState previousState = _undoStack.Pop();
+            _text = previousState.Text;
+            CaretLogicalPosition = previousState.CaretPosition;
+            TextStartIndex = previousState.TextStartIndex;
+
+            TextChanged?.Invoke(this, _text);
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    public void Redo()
+    {
+        if (_redoStack.Count > 0)
+        {
+            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            _undoStack.Push(currentState);
+            if (_undoStack.Count > HistoryLimit)
+            {
+                var tempList = _undoStack.ToList();
+                tempList.RemoveAt(0);
+                _undoStack.Clear();
+                foreach (var state in tempList.AsEnumerable().Reverse())
+                {
+                    _undoStack.Push(state);
+                }
+            }
+
+            LineEditState nextState = _redoStack.Pop();
+            _text = nextState.Text;
+            CaretLogicalPosition = nextState.CaretPosition;
+            TextStartIndex = nextState.TextStartIndex;
+
+            TextChanged?.Invoke(this, _text);
+            UpdateCaretDisplayPositionAndStartIndex();
+        }
+    }
+
+    protected record LineEditState(string Text, int CaretPosition, int TextStartIndex);
+
+    protected Vector2 GetLocalMousePosition()
+    {
+        var owningWindowNode = GetOwningWindowNode();
+        if (owningWindowNode != null)
+        {
+            return owningWindowNode.LocalMousePosition;
+        }
+
+        var mainAppWindow = ApplicationServer.Instance.GetMainAppWindow();
+        if (mainAppWindow != null)
+        {
+            return mainAppWindow.GetLocalMousePosition();
+        }
+
+        Log.Warning($"LineEdit '{Name}': Could not determine owning window for local mouse position. Using global Input.MousePosition.");
+        return Input.MousePosition;
+    }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.PlaceholderTextDisplayer.cs"><![CDATA[namespace Cherris;
+
+public partial class LineEdit
+{
+    private class PlaceholderTextDisplayer : BaseText
+    {
+        public PlaceholderTextDisplayer(LineEdit parent) : base(parent)
+        {
+        }
+
+        protected override string GetTextToDisplay()
+        {
+            return parentLineEdit.PlaceholderText;
+        }
+
+        protected override bool ShouldSkipDrawing()
+        {
+            // Don't draw placeholder if there's actual text
+            return !string.IsNullOrEmpty(parentLineEdit.Text);
+        }
+    }
+}]]></file>
+    <file path="D:\Parsa Stuff\Visual Studio\Cherrisma\Cherris\Source\Nodes\Ui\LineEdit\LineEdit.TextDisplayer.cs"><![CDATA[namespace Cherris;
+
+public partial class LineEdit
+{
+    private class TextDisplayer : BaseText
+    {
+        public TextDisplayer(LineEdit parent) : base(parent)
+        {
+        }
+
+        protected override string GetTextToDisplay()
+        {
+            if (string.IsNullOrEmpty(parentLineEdit.Text))
+            {
+                return "";
+            }
+
+            string textToDisplay = parentLineEdit.Text;
+
+            if (parentLineEdit.Secret)
+            {
+                textToDisplay = new string(parentLineEdit.SecretCharacter, textToDisplay.Length);
+            }
+
+            // Ensure TextStartIndex is valid
+            int startIndex = Math.Clamp(parentLineEdit.TextStartIndex, 0, textToDisplay.Length);
+
+            // Calculate how many characters can actually be taken from startIndex
+            int availableLengthFromStartIndex = textToDisplay.Length - startIndex;
+
+            // Determine the number of characters to display (min of displayable count and available from start index)
+            int count = Math.Min(parentLineEdit.GetDisplayableCharactersCount(), availableLengthFromStartIndex);
+
+            if (count <= 0) return ""; // Nothing to display from this start index or no space
+
+            return textToDisplay.Substring(startIndex, count);
+        }
+
+        protected override bool ShouldSkipDrawing()
+        {
+            // If placeholder is showing, actual text displayer should skip.
+            // Placeholder skips if text has length. Actual text should draw if it has length.
+            // This seems redundant with GetTextToDisplay returning "" if no text.
+            return string.IsNullOrEmpty(parentLineEdit.Text);
+        }
+    }
+}]]></file>
+  </relevantFiles>
+</files>

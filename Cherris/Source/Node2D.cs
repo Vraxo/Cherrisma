@@ -2,20 +2,20 @@
 
 public class Node2D : VisualItem
 {
-    public Vector2 Position          { get; set; } = Vector2.Zero;
-    public virtual float Rotation    { get; set; } = 0;
+    public Vector2 Position { get; set; } = Vector2.Zero;
+    public virtual float Rotation { get; set; } = 0;
     public OriginPreset OriginPreset { get; set; } = OriginPreset.Center;
-    public bool InheritScale         { get; set; } = true;
-    public HAlignment HAlignment     { get; set; } = HAlignment.Center;
-    public VAlignment VAlignment     { get; set; } = VAlignment.Center;
+    public bool InheritScale { get; set; } = true;
+    public HAlignment HAlignment { get; set; } = HAlignment.Center;
+    public VAlignment VAlignment { get; set; } = VAlignment.Center;
     public AnchorPreset AnchorPreset { get; set; } = AnchorPreset.None;
 
-    public float MarginLeft   { get; set; } = 0f;
-    public float MarginTop    { get; set; } = 0f;
-    public float MarginRight  { get; set; } = 0f;
+    public float MarginLeft { get; set; } = 0f;
+    public float MarginTop { get; set; } = 0f;
+    public float MarginRight { get; set; } = 0f;
     public float MarginBottom { get; set; } = 0f;
 
-    public float RelativeWidth  { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
+    public float RelativeWidth { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit width.
     public float RelativeHeight { get; set; } = 0f; // 0 to 1. If > 0, overrides explicit height.
 
     public Vector2 ScaledSize => Size * Scale;
@@ -126,7 +126,7 @@ public class Node2D : VisualItem
         }
     }
 
-    public Vector2 Offset { get; set;}
+    public Vector2 Offset { get; set; }
 
     public Vector2 Origin
     {
@@ -153,7 +153,7 @@ public class Node2D : VisualItem
         }
     }
 
-    private Vector2 _explicitSize = new(320, 320);
+    protected Vector2 _explicitSize = new(320, 320);
 
     // Events
 
