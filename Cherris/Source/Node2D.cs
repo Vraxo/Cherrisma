@@ -24,27 +24,40 @@ public class Node2D : VisualItem
     {
         get
         {
-            Vector2 referenceSizeForRelative;
+            float finalWidth;
+            float finalHeight;
+            Vector2 parentSizeForRelative = Vector2.Zero;
 
-            if (Parent is Node2D parentNode2D)
+            // Determine width
+            if (RelativeWidth > 0f && RelativeWidth <= 1f)
             {
-                referenceSizeForRelative = parentNode2D.Size;
+                if (parentSizeForRelative == Vector2.Zero)
+                    parentSizeForRelative = (Parent is Node2D p) ? p.Size : GetWindowSizeV2();
+                finalWidth = parentSizeForRelative.X * RelativeWidth;
+            }
+            else if (_explicitSize.X != 0f)
+            {
+                finalWidth = _explicitSize.X;
             }
             else
             {
-                referenceSizeForRelative = GetWindowSizeV2();
+                finalWidth = ComputeAutoSize().X;
             }
 
-            float finalWidth = _explicitSize.X;
-            if (RelativeWidth > 0f && RelativeWidth <= 1f)
-            {
-                finalWidth = referenceSizeForRelative.X * RelativeWidth;
-            }
-
-            float finalHeight = _explicitSize.Y;
+            // Determine height
             if (RelativeHeight > 0f && RelativeHeight <= 1f)
             {
-                finalHeight = referenceSizeForRelative.Y * RelativeHeight;
+                if (parentSizeForRelative == Vector2.Zero)
+                    parentSizeForRelative = (Parent is Node2D p) ? p.Size : GetWindowSizeV2();
+                finalHeight = parentSizeForRelative.Y * RelativeHeight;
+            }
+            else if (_explicitSize.Y != 0f)
+            {
+                finalHeight = _explicitSize.Y;
+            }
+            else
+            {
+                finalHeight = ComputeAutoSize().Y;
             }
 
             return new Vector2(finalWidth, finalHeight);
@@ -59,26 +72,25 @@ public class Node2D : VisualItem
 
     public virtual Vector2 Scale
     {
-        get => InheritScale && Parent is Node2D node2DParent ? node2DParent.Scale : field;
-        set => field = value;
+        get => InheritScale && Parent is Node2D node2DParent ? node2DParent.Scale : fieldScale; // Changed 'field' to 'fieldScale'
+        set; // Changed 'field' to 'fieldScale'
     } = new(1, 1);
 
     public virtual Vector2 GlobalPosition
     {
         get
         {
-            Vector2 parentGlobalTopLeft; // Top-left of the parent's bounding box in global space
+            Vector2 parentGlobalTopLeft;
             Vector2 parentSize;
 
             if (Parent is Node2D parentNode)
             {
-                // To get parent's global top-left, we need its GlobalPosition (which is its Origin) and its Origin
                 parentGlobalTopLeft = parentNode.GlobalPosition - parentNode.Origin;
                 parentSize = parentNode.Size;
             }
             else
             {
-                parentGlobalTopLeft = Vector2.Zero; // Root relative to window
+                parentGlobalTopLeft = Vector2.Zero;
                 parentSize = GetWindowSizeV2();
             }
 
@@ -87,24 +99,19 @@ public class Node2D : VisualItem
 
             if (AnchorPreset == AnchorPreset.None)
             {
-                // If no anchor, GlobalPosition is parent's top-left + local Position
-                // (semantically, local Position is relative to parent's top-left if parent is root,
-                // or parent's Origin if parent is Node2D - for consistency, let's use parent's top-left)
-                // No, GlobalPosition of a child is relative to parent's origin for direct children
                 Vector2 parentOriginGlobal = (Parent is Node2D pNode) ? pNode.GlobalPosition : Vector2.Zero;
                 calculatedGlobalOriginX = parentOriginGlobal.X + Position.X;
                 calculatedGlobalOriginY = parentOriginGlobal.Y + Position.Y;
             }
             else
             {
-                // Calculate the target anchor point on the parent in global space
                 float targetGlobalAnchorX = AnchorPreset switch
                 {
                     AnchorPreset.TopLeft or AnchorPreset.CenterLeft or AnchorPreset.BottomLeft
                         => parentGlobalTopLeft.X + MarginLeft,
                     AnchorPreset.TopCenter or AnchorPreset.Center or AnchorPreset.BottomCenter
                         => parentGlobalTopLeft.X + (parentSize.X * 0.5f) + MarginLeft - MarginRight,
-                    _ // TopRight, CenterRight, BottomRight
+                    _
                         => parentGlobalTopLeft.X + parentSize.X - MarginRight,
                 };
 
@@ -114,17 +121,13 @@ public class Node2D : VisualItem
                         => parentGlobalTopLeft.Y + MarginTop,
                     AnchorPreset.CenterLeft or AnchorPreset.Center or AnchorPreset.CenterRight
                         => parentGlobalTopLeft.Y + (parentSize.Y * 0.5f) + MarginTop - MarginBottom,
-                    _ // BottomLeft, BottomCenter, BottomRight
+                    _
                         => parentGlobalTopLeft.Y + parentSize.Y - MarginBottom,
                 };
 
-                // The node's own Origin should be placed at this target global anchor point.
-                // So, GlobalPosition.X (which is the origin's X) IS targetGlobalAnchorX.
                 calculatedGlobalOriginX = targetGlobalAnchorX;
                 calculatedGlobalOriginY = targetGlobalAnchorY;
 
-                // Then, the node's local `Position` property acts as an additional offset
-                // from this already-calculated anchored origin position.
                 calculatedGlobalOriginX += Position.X;
                 calculatedGlobalOriginY += Position.Y;
             }
@@ -133,20 +136,18 @@ public class Node2D : VisualItem
         }
     }
 
-    public Vector2 Offset { get; set; } // Offset applied to Origin calculation
+    public Vector2 Offset { get; set; }
 
-    public Vector2 Origin // This is the node's pivot point, relative to its own top-left corner
+    public Vector2 Origin
     {
         get
         {
-            // Note: OriginPreset is currently not used here.
-            // HAlignment/VAlignment directly determine the origin.
             float x = HAlignment switch
             {
                 HAlignment.Center => Size.X / 2f,
                 HAlignment.Left => 0,
                 HAlignment.Right => Size.X,
-                HAlignment.None => 0, // Default to Left if None
+                HAlignment.None => 0,
                 _ => 0
             };
 
@@ -155,25 +156,30 @@ public class Node2D : VisualItem
                 VAlignment.Center => Size.Y / 2f,
                 VAlignment.Top => 0,
                 VAlignment.Bottom => Size.Y,
-                VAlignment.None => 0, // Default to Top if None
+                VAlignment.None => 0,
                 _ => 0
             };
 
             Vector2 alignmentOffset = new(x, y);
-            return alignmentOffset + Offset; // Apply additional Offset
+            return alignmentOffset + Offset;
         }
     }
 
-    protected Vector2 _explicitSize = new(320, 320);
-    private Vector2 fieldScale = new(1, 1); // Backing field for Scale if not inheriting
+    protected Vector2 _explicitSize = Vector2.Zero;
+    private Vector2 fieldScale = new(1, 1);
 
     public event EventHandler<Vector2>? SizeChanged;
 
+    protected virtual Vector2 ComputeAutoSize()
+    {
+        return Vector2.Zero; // Default behavior: no auto-size, relies on explicit or relative.
+    }
+
     public void LookAt(Vector2 targetPosition)
     {
-        Vector2 originPoint = GlobalPosition; // GlobalPosition is already the origin's position
+        Vector2 originPoint = GlobalPosition;
         Vector2 direction = targetPosition - originPoint;
-        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f; // Radians to Degrees
+        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f;
         Rotation = angle;
     }
 }
