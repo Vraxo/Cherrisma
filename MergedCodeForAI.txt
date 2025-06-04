@@ -37,29 +37,35 @@ children:
     - Node: LineEdit::LineEdit
       AnchorPreset: TopCenter
       MarginTop: 32
-      HAlignment: Left
+      RelativeWidth: 0.5
 
     - Node: HBoxContainer::ButtonContainer
       AnchorPreset: BottomCenter
       HAlignment: Center # HBoxContainer will center its content (the buttons)
-      MarginBottom: 32
+      MarginBottom: 74
       Separation: 8
       children:
         - Node: Button::ButtonPrevious
           Text: "<"
-          Size: [40, 26]
-          HAlignment: Left # Ensures button's origin is (0,y)
-        - Node: Button::ButtonPlayPause
+          Size: [32, 32]
+          HAlignment: Right # Ensures button's origin is (0,y)
+          FocusNeighborRight: ../PlayPauseButton
+          Styles:
+            Roundness: 1
+        - Node: Button::PlayPauseButton
           Text: "||"
-          Size: [40, 26]
-          HAlignment: Left # Ensures button's origin is (0,y)
+          Size: [32, 32]
+          HAlignment: Right # Ensures button's origin is (0,y)
+          Styles:
+            Roundness: 1
         - Node: Button::ButtonNext
           Text: ">"
-          Size: [40, 26]
-          HAlignment: Left # Ensures button's origin is (0,y)
+          Size: [32, 32]
+          HAlignment: Right # Ensures button's origin is (0,y)
+          Styles:
+            Roundness: 1
 
     - Node: HSlider::Slider
-      HAlignment: Right
       AnchorPreset: BottomCenter
       Size: [300, 8]
       RelativeWidth: 0.5
@@ -2463,27 +2469,40 @@ public class Node2D : VisualItem
     {
         get
         {
-            Vector2 referenceSizeForRelative;
+            float finalWidth;
+            float finalHeight;
+            Vector2 parentSizeForRelative = Vector2.Zero;
 
-            if (Parent is Node2D parentNode2D)
+            // Determine width
+            if (RelativeWidth > 0f && RelativeWidth <= 1f)
             {
-                referenceSizeForRelative = parentNode2D.Size;
+                if (parentSizeForRelative == Vector2.Zero)
+                    parentSizeForRelative = (Parent is Node2D p) ? p.Size : GetWindowSizeV2();
+                finalWidth = parentSizeForRelative.X * RelativeWidth;
+            }
+            else if (_explicitSize.X != 0f)
+            {
+                finalWidth = _explicitSize.X;
             }
             else
             {
-                referenceSizeForRelative = GetWindowSizeV2();
+                finalWidth = ComputeAutoSize().X;
             }
 
-            float finalWidth = _explicitSize.X;
-            if (RelativeWidth > 0f && RelativeWidth <= 1f)
-            {
-                finalWidth = referenceSizeForRelative.X * RelativeWidth;
-            }
-
-            float finalHeight = _explicitSize.Y;
+            // Determine height
             if (RelativeHeight > 0f && RelativeHeight <= 1f)
             {
-                finalHeight = referenceSizeForRelative.Y * RelativeHeight;
+                if (parentSizeForRelative == Vector2.Zero)
+                    parentSizeForRelative = (Parent is Node2D p) ? p.Size : GetWindowSizeV2();
+                finalHeight = parentSizeForRelative.Y * RelativeHeight;
+            }
+            else if (_explicitSize.Y != 0f)
+            {
+                finalHeight = _explicitSize.Y;
+            }
+            else
+            {
+                finalHeight = ComputeAutoSize().Y;
             }
 
             return new Vector2(finalWidth, finalHeight);
@@ -2498,26 +2517,25 @@ public class Node2D : VisualItem
 
     public virtual Vector2 Scale
     {
-        get => InheritScale && Parent is Node2D node2DParent ? node2DParent.Scale : field;
-        set => field = value;
+        get => InheritScale && Parent is Node2D node2DParent ? node2DParent.Scale : fieldScale; // Changed 'field' to 'fieldScale'
+        set; // Changed 'field' to 'fieldScale'
     } = new(1, 1);
 
     public virtual Vector2 GlobalPosition
     {
         get
         {
-            Vector2 parentGlobalTopLeft; // Top-left of the parent's bounding box in global space
+            Vector2 parentGlobalTopLeft;
             Vector2 parentSize;
 
             if (Parent is Node2D parentNode)
             {
-                // To get parent's global top-left, we need its GlobalPosition (which is its Origin) and its Origin
                 parentGlobalTopLeft = parentNode.GlobalPosition - parentNode.Origin;
                 parentSize = parentNode.Size;
             }
             else
             {
-                parentGlobalTopLeft = Vector2.Zero; // Root relative to window
+                parentGlobalTopLeft = Vector2.Zero;
                 parentSize = GetWindowSizeV2();
             }
 
@@ -2526,24 +2544,19 @@ public class Node2D : VisualItem
 
             if (AnchorPreset == AnchorPreset.None)
             {
-                // If no anchor, GlobalPosition is parent's top-left + local Position
-                // (semantically, local Position is relative to parent's top-left if parent is root,
-                // or parent's Origin if parent is Node2D - for consistency, let's use parent's top-left)
-                // No, GlobalPosition of a child is relative to parent's origin for direct children
                 Vector2 parentOriginGlobal = (Parent is Node2D pNode) ? pNode.GlobalPosition : Vector2.Zero;
                 calculatedGlobalOriginX = parentOriginGlobal.X + Position.X;
                 calculatedGlobalOriginY = parentOriginGlobal.Y + Position.Y;
             }
             else
             {
-                // Calculate the target anchor point on the parent in global space
                 float targetGlobalAnchorX = AnchorPreset switch
                 {
                     AnchorPreset.TopLeft or AnchorPreset.CenterLeft or AnchorPreset.BottomLeft
                         => parentGlobalTopLeft.X + MarginLeft,
                     AnchorPreset.TopCenter or AnchorPreset.Center or AnchorPreset.BottomCenter
                         => parentGlobalTopLeft.X + (parentSize.X * 0.5f) + MarginLeft - MarginRight,
-                    _ // TopRight, CenterRight, BottomRight
+                    _
                         => parentGlobalTopLeft.X + parentSize.X - MarginRight,
                 };
 
@@ -2553,17 +2566,13 @@ public class Node2D : VisualItem
                         => parentGlobalTopLeft.Y + MarginTop,
                     AnchorPreset.CenterLeft or AnchorPreset.Center or AnchorPreset.CenterRight
                         => parentGlobalTopLeft.Y + (parentSize.Y * 0.5f) + MarginTop - MarginBottom,
-                    _ // BottomLeft, BottomCenter, BottomRight
+                    _
                         => parentGlobalTopLeft.Y + parentSize.Y - MarginBottom,
                 };
 
-                // The node's own Origin should be placed at this target global anchor point.
-                // So, GlobalPosition.X (which is the origin's X) IS targetGlobalAnchorX.
                 calculatedGlobalOriginX = targetGlobalAnchorX;
                 calculatedGlobalOriginY = targetGlobalAnchorY;
 
-                // Then, the node's local `Position` property acts as an additional offset
-                // from this already-calculated anchored origin position.
                 calculatedGlobalOriginX += Position.X;
                 calculatedGlobalOriginY += Position.Y;
             }
@@ -2572,20 +2581,18 @@ public class Node2D : VisualItem
         }
     }
 
-    public Vector2 Offset { get; set; } // Offset applied to Origin calculation
+    public Vector2 Offset { get; set; }
 
-    public Vector2 Origin // This is the node's pivot point, relative to its own top-left corner
+    public Vector2 Origin
     {
         get
         {
-            // Note: OriginPreset is currently not used here.
-            // HAlignment/VAlignment directly determine the origin.
             float x = HAlignment switch
             {
                 HAlignment.Center => Size.X / 2f,
                 HAlignment.Left => 0,
                 HAlignment.Right => Size.X,
-                HAlignment.None => 0, // Default to Left if None
+                HAlignment.None => 0,
                 _ => 0
             };
 
@@ -2594,25 +2601,30 @@ public class Node2D : VisualItem
                 VAlignment.Center => Size.Y / 2f,
                 VAlignment.Top => 0,
                 VAlignment.Bottom => Size.Y,
-                VAlignment.None => 0, // Default to Top if None
+                VAlignment.None => 0,
                 _ => 0
             };
 
             Vector2 alignmentOffset = new(x, y);
-            return alignmentOffset + Offset; // Apply additional Offset
+            return alignmentOffset + Offset;
         }
     }
 
-    protected Vector2 _explicitSize = new(320, 320);
-    private Vector2 fieldScale = new(1, 1); // Backing field for Scale if not inheriting
+    protected Vector2 _explicitSize = Vector2.Zero;
+    private Vector2 fieldScale = new(1, 1);
 
     public event EventHandler<Vector2>? SizeChanged;
 
+    protected virtual Vector2 ComputeAutoSize()
+    {
+        return Vector2.Zero; // Default behavior: no auto-size, relies on explicit or relative.
+    }
+
     public void LookAt(Vector2 targetPosition)
     {
-        Vector2 originPoint = GlobalPosition; // GlobalPosition is already the origin's position
+        Vector2 originPoint = GlobalPosition;
         Vector2 direction = targetPosition - originPoint;
-        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f; // Radians to Degrees
+        var angle = float.Atan2(direction.Y, direction.X) * 57.29578f;
         Rotation = angle;
     }
 }
@@ -7559,8 +7571,7 @@ namespace Cherris;
 public class HBoxContainer : Node2D
 {
     public float Separation { get; set; } = 4f;
-    // Note: HBoxContainer inherits _explicitSize from Node2D (default 320,320)
-    // If no Size is specified in YAML for HBoxContainer, it will use this default.
+    public HAlignment ContentHAlignment { get; set; } = HAlignment.Center;
 
     public override void Process()
     {
@@ -7568,107 +7579,104 @@ public class HBoxContainer : Node2D
         UpdateLayout();
     }
 
-    private void UpdateLayout()
+    protected override Vector2 ComputeAutoSize()
     {
         var visibleNode2DChildren = Children.OfType<Node2D>().Where(c => c.Visible).ToList();
-
-        float totalRequiredContentWidth = 0;
-        float maxChildHeight = 0;
+        float requiredWidth = 0;
+        float maxHeight = 0;
 
         if (visibleNode2DChildren.Any())
         {
             foreach (Node2D child in visibleNode2DChildren)
             {
+                requiredWidth += child.Size.X;
+                maxHeight = Math.Max(maxHeight, child.Size.Y);
+            }
+            requiredWidth += (visibleNode2DChildren.Count - 1) * Separation;
+        }
+        return new Vector2(requiredWidth, maxHeight);
+    }
+
+    private void UpdateLayout()
+    {
+        var visibleNode2DChildren = Children.OfType<Node2D>().Where(c => c.Visible).ToList();
+
+        float containerWidth = this.Size.X;
+        float containerHeight = this.Size.Y;
+
+        float totalRequiredContentWidth = 0;
+        if (visibleNode2DChildren.Any())
+        {
+            foreach (Node2D child in visibleNode2DChildren)
+            {
                 totalRequiredContentWidth += child.Size.X;
-                maxChildHeight = Math.Max(maxChildHeight, child.Size.Y);
             }
             totalRequiredContentWidth += (visibleNode2DChildren.Count - 1) * Separation;
         }
-        else // No visible children
+
+        float visualLeftLocalX = 0f;
+        if (this.HAlignment == HAlignment.Center)
         {
-            // If HBoxContainer has no explicit size control (not relative, explicit is default/zero)
-            // then its size should ideally be zero.
-            if (RelativeWidth <= 0 && RelativeHeight <= 0 && _explicitSize != Vector2.Zero)
-            {
-                // this.Size = Vector2.Zero; // Set to zero if it was something else
-            }
-            // If it has children, layout continues below. If not, effectively done.
+            visualLeftLocalX = -containerWidth / 2f;
+        }
+        else if (this.HAlignment == HAlignment.Right)
+        {
+            visualLeftLocalX = -containerWidth;
         }
 
-        // Determine the container's actual rendering width and height for child layout.
-        // This uses the Node2D.Size property, which considers _explicitSize (from YAML or Node2D default)
-        // and RelativeWidth/Height.
-        float currentContainerRenderWidth = this.Size.X;
-        float currentContainerRenderHeight = this.Size.Y;
-
-        // Adjust container's explicit height if it's not relatively sized and is smaller than content.
-        // This allows the container to grow vertically to fit children.
-        if (this.RelativeHeight == 0)
-        {
-            if (_explicitSize.Y < maxChildHeight) // Compare against _explicitSize.Y
-            {
-                // Update _explicitSize.Y to fit content and trigger SizeChanged
-                this.Size = new Vector2(_explicitSize.X, maxChildHeight); // This updates _explicitSize via setter
-                currentContainerRenderHeight = this.Size.Y; // Re-fetch potentially updated height
-            }
-            else if (visibleNode2DChildren.Any() && _explicitSize.Y == 0 && maxChildHeight > 0) // Handle if _explicitSize.Y was truly zero
-            {
-                this.Size = new Vector2(_explicitSize.X, maxChildHeight);
-                currentContainerRenderHeight = this.Size.Y;
-            }
-        }
-        // If no children and not relative, ensure explicit height is also cleared if width was cleared.
-        // This is more complex if we want perfect shrink-to-zero.
-        // For now, if no children, content width/height are 0, and layout below handles it.
-
-
-        float initialContentOffsetX = 0;
-        // Use the HBoxContainer's own HAlignment to position the block of children
-        // within its currentContainerRenderWidth.
-        switch (this.HAlignment)
+        float childVisualStartX_local;
+        switch (this.ContentHAlignment)
         {
             case HAlignment.Left:
-                initialContentOffsetX = 0;
+                childVisualStartX_local = visualLeftLocalX;
                 break;
             case HAlignment.Center:
-                initialContentOffsetX = (currentContainerRenderWidth - totalRequiredContentWidth) / 2f;
+                childVisualStartX_local = visualLeftLocalX + (containerWidth - totalRequiredContentWidth) / 2f;
                 break;
             case HAlignment.Right:
-                initialContentOffsetX = currentContainerRenderWidth - totalRequiredContentWidth;
+                childVisualStartX_local = visualLeftLocalX + containerWidth - totalRequiredContentWidth;
                 break;
-            case HAlignment.None: // Treat as Left
+            case HAlignment.None:
             default:
-                initialContentOffsetX = 0;
+                childVisualStartX_local = visualLeftLocalX;
                 break;
         }
 
-        float currentX = initialContentOffsetX;
+        float currentVisualX = childVisualStartX_local; // This tracks the target visual left for the next child, relative to parent's origin
+
         foreach (Node2D child in visibleNode2DChildren)
         {
-            float childY = 0;
-            // Use child's VAlignment to position it vertically within the HBoxContainer's height.
+            float visualTopLocalY = 0f;
+            if (this.VAlignment == VAlignment.Center) visualTopLocalY = -containerHeight / 2f;
+            else if (this.VAlignment == VAlignment.Bottom) visualTopLocalY = -containerHeight;
+
+            float childVisualTargetY_local; // Target visual top for the child, relative to parent's origin
             switch (child.VAlignment)
             {
                 case VAlignment.Top:
-                    childY = 0;
+                    childVisualTargetY_local = visualTopLocalY;
                     break;
                 case VAlignment.Center:
-                    childY = (currentContainerRenderHeight / 2f) - (child.Size.Y / 2f);
+                    childVisualTargetY_local = visualTopLocalY + (containerHeight - child.Size.Y) / 2f;
                     break;
                 case VAlignment.Bottom:
-                    childY = currentContainerRenderHeight - child.Size.Y;
+                    childVisualTargetY_local = visualTopLocalY + containerHeight - child.Size.Y;
                     break;
-                case VAlignment.None: // Treat as Top
+                case VAlignment.None:
                 default:
-                    childY = 0;
+                    childVisualTargetY_local = visualTopLocalY;
                     break;
             }
-            child.Position = new Vector2(currentX, childY);
 
-            currentX += child.Size.X;
+            // Child's Position is its Origin's location relative to parent's Origin.
+            // To place child's visual top-left at (currentVisualX, childVisualTargetY_local) [relative to parent's origin],
+            // we set child.Position to (target_visual_left + child.Origin.X, target_visual_top + child.Origin.Y)
+            child.Position = new Vector2(currentVisualX + child.Origin.X, childVisualTargetY_local + child.Origin.Y);
+
+            currentVisualX += child.Size.X;
             if (visibleNode2DChildren.IndexOf(child) < visibleNode2DChildren.Count - 1)
             {
-                currentX += Separation;
+                currentVisualX += Separation;
             }
         }
     }
@@ -8330,7 +8338,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false;
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = true;
+    public bool AutoScrollToShowFullText { get; set; } = false;
 
     public int TextStartIndex { get; internal set; } = 0;
 
@@ -9106,28 +9114,24 @@ public class HSlider : Slider
 
     protected override void CalculateTrackBounds()
     {
-        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
-        Vector2 currentGlobalPos = GlobalPosition; // Get current global position for input logic bounds
-        this.trackPosition = currentGlobalPos;
-        trackMin = currentGlobalPos.X;
-        // If the grabber must stay fully within track visually (for mouse interaction):
-        // trackMax = currentGlobalPos.X + Size.X - GrabberSize.X; (This might be too restrictive for value calculation)
-        // Let ConvertPositionToValue and CalculateGrabberPosition handle clamping based on full Size.X range.
-        trackMax = currentGlobalPos.X + Size.X;
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
+        this.trackPosition = sliderVisualTopLeft; // Store the visual top-left
+        trackMin = sliderVisualTopLeft.X;         // Min X for mouse interaction range, relative to window
+        trackMax = sliderVisualTopLeft.X + Size.X;// Max X for mouse interaction range, relative to window
     }
 
     protected override void UpdateHoverStates()
     {
-        Vector2 mousePos = GetLocalMousePosition();
-        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle for hover logic consistency
+        Vector2 mousePos = GetLocalMousePosition(); // window-local mouse coordinates
+        Vector2 visualSliderTopLeft = this.trackPosition; // This is (GlobalPosition - Origin)
 
-        // Track hover: considers the whole Size of the slider, relative to its top-left (currentTrackPosForHover)
-        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
-                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
-                       mousePos.Y >= currentTrackPosForHover.Y &&
-                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
+        // Track hover: check if mousePos is within the visual bounds of the slider track
+        trackHovered = mousePos.X >= visualSliderTopLeft.X &&
+                       mousePos.X <= visualSliderTopLeft.X + Size.X &&
+                       mousePos.Y >= visualSliderTopLeft.Y &&
+                       mousePos.Y <= visualSliderTopLeft.Y + Size.Y;
 
-        // Grabber hover: uses actual grabber bounds. CalculateGrabberPosition will use fresh GlobalPosition.
+        // Grabber hover: CalculateGrabberPosition returns global coords of grabber's top-left
         Vector2 grabberTopLeftPos = CalculateGrabberPosition();
         grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
                          mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
@@ -9146,15 +9150,13 @@ public class HSlider : Slider
     {
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
-            // Mouse position is already local to the window.
-            // trackHovered uses this.trackPosition which is up-to-date for the current Process() cycle.
-            if (trackHovered)
+            if (trackHovered) // trackHovered uses window-local mouse and this.trackPosition
             {
-                float localMouseX = GetLocalMousePosition().X;
-                // Clamp mouse X to be within the visual track extents for value calculation,
-                // using this.trackPosition which is consistent with trackHovered check.
+                float localMouseX = GetLocalMousePosition().X; // Window-local mouse X
+                // Value calculation should be based on mouse position relative to the track's visual extent
+                // this.trackPosition.X is the visual left edge of the track in window coordinates
                 float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
-                Value = ConvertPositionToValue(clampedMouseXOnTrack); // ConvertPositionToValue also uses this.trackPosition
+                Value = ConvertPositionToValue(clampedMouseXOnTrack);
                 grabberPressed = true;
                 PlaySound();
             }
@@ -9176,7 +9178,6 @@ public class HSlider : Slider
         }
 
         float localMouseX = GetLocalMousePosition().X;
-        // Use this.trackPosition for consistency with press logic.
         float clampedMouseXOnTrack = Math.Clamp(localMouseX, this.trackPosition.X, this.trackPosition.X + Size.X);
         Value = ConvertPositionToValue(clampedMouseXOnTrack);
     }
@@ -9192,16 +9193,14 @@ public class HSlider : Slider
         PlaySound();
     }
 
-    protected override float ConvertPositionToValue(float positionOnTrackInLocalSpace)
+    protected override float ConvertPositionToValue(float positionOnTrackInWindowSpace)
     {
-        // positionOnTrackInLocalSpace is a local X coordinate (e.g., mouse.X)
-        // This uses this.trackPosition.X, which is updated in CalculateTrackBounds within the same Process() cycle.
-        float effectiveTrackMin = this.trackPosition.X;
-        float effectiveTrackWidth = Size.X; // Size.X is dynamic and up-to-date
+        float visualTrackLeftEdge = this.trackPosition.X; // This is (GlobalPosition - Origin).X
+        float effectiveTrackWidth = Size.X;
 
         if (effectiveTrackWidth <= 0) return MinValue;
 
-        float normalized = (positionOnTrackInLocalSpace - effectiveTrackMin) / effectiveTrackWidth;
+        float normalized = (positionOnTrackInWindowSpace - visualTrackLeftEdge) / effectiveTrackWidth;
         normalized = Math.Clamp(normalized, 0f, 1f);
 
         if (Direction == HSliderDirection.RightToLeft)
@@ -9215,19 +9214,19 @@ public class HSlider : Slider
 
     protected override void DrawForeground(DrawingContext context)
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
         float range = MaxValue - MinValue;
         float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         fillRatio = Math.Clamp(fillRatio, 0f, 1f);
 
-        float foregroundWidth = Size.X * fillRatio; // Size.X is dynamic
+        float foregroundWidth = Size.X * fillRatio;
         Rect foregroundRect;
 
         if (Direction == HSliderDirection.RightToLeft)
         {
             foregroundRect = new Rect(
-                currentGlobalPos.X + Size.X - foregroundWidth,
-                currentGlobalPos.Y,
+                sliderVisualTopLeft.X + Size.X - foregroundWidth,
+                sliderVisualTopLeft.Y,
                 foregroundWidth,
                 Size.Y
             );
@@ -9235,8 +9234,8 @@ public class HSlider : Slider
         else // LeftToRight
         {
             foregroundRect = new Rect(
-                currentGlobalPos.X,
-                currentGlobalPos.Y,
+                sliderVisualTopLeft.X,
+                sliderVisualTopLeft.Y,
                 foregroundWidth,
                 Size.Y
             );
@@ -9250,7 +9249,7 @@ public class HSlider : Slider
 
     protected override Vector2 CalculateGrabberPosition()
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -9260,18 +9259,26 @@ public class HSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        float grabberCenterX = currentGlobalPos.X + normalizedValue * Size.X;
-        float grabberLeftX = grabberCenterX - GrabberSize.X / 2f;
-        grabberLeftX = Math.Clamp(grabberLeftX, currentGlobalPos.X, currentGlobalPos.X + Size.X - GrabberSize.X);
+        // Calculate grabber's center X relative to the slider's visual left edge
+        float grabberCenterX_relativeToSliderLeft = normalizedValue * Size.X;
+        // Calculate grabber's top-left X relative to the slider's visual left edge
+        float grabberLeftX_relativeToSliderLeft = grabberCenterX_relativeToSliderLeft - GrabberSize.X / 2f;
+        // Clamp this relative position so grabber stays within slider's bounds
+        grabberLeftX_relativeToSliderLeft = Math.Clamp(grabberLeftX_relativeToSliderLeft, 0, Size.X - GrabberSize.X);
 
-        float yPos = currentGlobalPos.Y + (Size.Y / 2f) - GrabberSize.Y / 2f;
-        return new Vector2(grabberLeftX, yPos);
+        // Convert to global coordinates
+        float finalGrabberLeftX_global = sliderVisualTopLeft.X + grabberLeftX_relativeToSliderLeft;
+
+        // Calculate grabber's top Y relative to slider's visual top edge (centered vertically)
+        float grabberTopY_relativeToSliderTop = (Size.Y / 2f) - GrabberSize.Y / 2f;
+        // Convert to global coordinates
+        float finalGrabberTopY_global = sliderVisualTopLeft.Y + grabberTopY_relativeToSliderTop;
+
+        return new Vector2(finalGrabberLeftX_global, finalGrabberTopY_global);
     }
 
     protected override void UpdateGrabberThemeVisuals()
     {
-        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
-        // So, their visual state update in relation to theme will be based on the Process() cycle.
         if (Disabled)
         {
             Style.Grabber.Current = Style.Grabber.Disabled;
@@ -9366,8 +9373,9 @@ public abstract class Slider : Control
     protected bool grabberHovered;
     protected bool trackHovered;
     protected Vector2 trackPosition; // Used for input logic bounds, updated in Process()
-    protected float trackMin;
-    protected float trackMax;
+                                     // This will store the visual top-left of the slider in window coordinates.
+    protected float trackMin;        // Min bound for interaction (X for HSlider, Y for VSlider) in window coordinates.
+    protected float trackMax;        // Max bound for interaction (X for HSlider, Y for VSlider) in window coordinates.
 
     private float _step = 0.01f;
     public float Step
@@ -9406,7 +9414,7 @@ public abstract class Slider : Control
             return;
         }
 
-        CalculateTrackBounds(); // Updates this.trackPosition, trackMin, trackMax for input logic
+        CalculateTrackBounds();
         UpdateHoverStates();
 
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
@@ -9494,14 +9502,14 @@ public abstract class Slider : Control
 
     private void DrawBackground(DrawingContext context)
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
-        var bounds = new Rect(currentGlobalPos.X, currentGlobalPos.Y, Size.X, Size.Y);
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
+        var bounds = new Rect(sliderVisualTopLeft.X, sliderVisualTopLeft.Y, Size.X, Size.Y);
         DrawStyledRectangle(context, bounds, Style.Background);
     }
 
     private void DrawGrabber(DrawingContext context)
     {
-        Vector2 grabberPos = CalculateGrabberPosition(); // This will use fresh GlobalPosition internally
+        Vector2 grabberPos = CalculateGrabberPosition();
         ButtonStyle currentGrabberStyle = Style.Grabber.Current;
 
         var bounds = new Rect(grabberPos.X, grabberPos.Y, GrabberSize.X, GrabberSize.Y);
@@ -9512,7 +9520,7 @@ public abstract class Slider : Control
     {
         if (Disabled || !Focusable) return;
 
-        if (trackHovered || grabberHovered) // trackHovered and grabberHovered are from Process()
+        if (trackHovered || grabberHovered)
         {
             Focused = true;
         }
@@ -9555,27 +9563,23 @@ public class VSlider : Slider
     }
     protected override void CalculateTrackBounds()
     {
-        // This method sets fields (this.trackPosition, trackMin, trackMax) used by input handling logic in Process().
-        Vector2 currentGlobalPos = GlobalPosition - Origin; // VSlider uses Origin in base.Process -> Clickable -> Node2D
-                                                            // However, Slider.DrawBackground uses GlobalPosition directly.
-                                                            // For consistency with how HSlider works and drawing, let's use GlobalPosition.
-        currentGlobalPos = GlobalPosition; // Use raw GlobalPosition for track bounds, consistent with Slider.DrawBackground
-        this.trackPosition = currentGlobalPos;
-        trackMin = currentGlobalPos.Y;
-        trackMax = currentGlobalPos.Y + Size.Y;
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
+        this.trackPosition = sliderVisualTopLeft; // Store the visual top-left
+        trackMin = sliderVisualTopLeft.Y;         // Min Y for mouse interaction range, relative to window
+        trackMax = sliderVisualTopLeft.Y + Size.Y;// Max Y for mouse interaction range, relative to window
     }
 
     protected override void UpdateHoverStates()
     {
-        Vector2 mousePos = GetLocalMousePosition();
-        Vector2 currentTrackPosForHover = this.trackPosition; // Use trackPosition from Process cycle
+        Vector2 mousePos = GetLocalMousePosition(); // window-local mouse coordinates
+        Vector2 visualSliderTopLeft = this.trackPosition; // This is (GlobalPosition - Origin)
 
-        trackHovered = mousePos.X >= currentTrackPosForHover.X &&
-                       mousePos.X <= currentTrackPosForHover.X + Size.X &&
-                       mousePos.Y >= currentTrackPosForHover.Y &&
-                       mousePos.Y <= currentTrackPosForHover.Y + Size.Y;
+        trackHovered = mousePos.X >= visualSliderTopLeft.X &&
+                       mousePos.X <= visualSliderTopLeft.X + Size.X &&
+                       mousePos.Y >= visualSliderTopLeft.Y &&
+                       mousePos.Y <= visualSliderTopLeft.Y + Size.Y;
 
-        Vector2 grabberTopLeftPos = CalculateGrabberPosition(); // Will use fresh GlobalPosition
+        Vector2 grabberTopLeftPos = CalculateGrabberPosition();
         grabberHovered = mousePos.X >= grabberTopLeftPos.X &&
                          mousePos.X <= grabberTopLeftPos.X + GrabberSize.X &&
                          mousePos.Y >= grabberTopLeftPos.Y &&
@@ -9593,11 +9597,11 @@ public class VSlider : Slider
     {
         if (Input.IsMouseButtonPressed(MouseButtonCode.Left))
         {
-            if (trackHovered) // Uses this.trackPosition consistent with current Process() cycle
+            if (trackHovered)
             {
                 float localMouseY = GetLocalMousePosition().Y;
                 float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
-                Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
+                Value = ConvertPositionToValue(clampedMouseY);
                 grabberPressed = true;
                 PlaySound();
             }
@@ -9619,7 +9623,7 @@ public class VSlider : Slider
         }
         float localMouseY = GetLocalMousePosition().Y;
         float clampedMouseY = Math.Clamp(localMouseY, this.trackPosition.Y, this.trackPosition.Y + Size.Y);
-        Value = ConvertPositionToValue(clampedMouseY); // Uses this.trackPosition
+        Value = ConvertPositionToValue(clampedMouseY);
     }
 
     private void HandleMouseWheel()
@@ -9633,15 +9637,14 @@ public class VSlider : Slider
         PlaySound();
     }
 
-    protected override float ConvertPositionToValue(float positionOnTrack)
+    protected override float ConvertPositionToValue(float positionOnTrackInWindowSpace)
     {
-        // Uses this.trackPosition.Y, which is updated in CalculateTrackBounds within the same Process() cycle.
-        float effectiveTrackMin = this.trackPosition.Y;
-        float effectiveTrackHeight = Size.Y; // Size.Y is dynamic
+        float visualTrackTopEdge = this.trackPosition.Y; // This is (GlobalPosition - Origin).Y
+        float effectiveTrackHeight = Size.Y;
 
         if (effectiveTrackHeight <= 0) return MinValue;
 
-        float normalized = (positionOnTrack - effectiveTrackMin) / effectiveTrackHeight;
+        float normalized = (positionOnTrackInWindowSpace - visualTrackTopEdge) / effectiveTrackHeight;
         normalized = Math.Clamp(normalized, 0f, 1f);
 
         if (Direction == VSliderDirection.BottomToTop)
@@ -9655,19 +9658,19 @@ public class VSlider : Slider
 
     protected override void DrawForeground(DrawingContext context)
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
         float range = MaxValue - MinValue;
         float fillRatio = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         fillRatio = Math.Clamp(fillRatio, 0f, 1f);
 
-        float foregroundHeight = Size.Y * fillRatio; // Size.Y is dynamic
+        float foregroundHeight = Size.Y * fillRatio;
         Rect foregroundRect;
 
         if (Direction == VSliderDirection.BottomToTop)
         {
             foregroundRect = new Rect(
-                currentGlobalPos.X,
-                currentGlobalPos.Y + Size.Y - foregroundHeight,
+                sliderVisualTopLeft.X,
+                sliderVisualTopLeft.Y + Size.Y - foregroundHeight,
                 Size.X,
                 foregroundHeight
             );
@@ -9675,8 +9678,8 @@ public class VSlider : Slider
         else // TopToBottom
         {
             foregroundRect = new Rect(
-                currentGlobalPos.X,
-                currentGlobalPos.Y,
+                sliderVisualTopLeft.X,
+                sliderVisualTopLeft.Y,
                 Size.X,
                 foregroundHeight
             );
@@ -9690,7 +9693,7 @@ public class VSlider : Slider
 
     protected override Vector2 CalculateGrabberPosition()
     {
-        Vector2 currentGlobalPos = GlobalPosition; // Use fresh GlobalPosition for drawing related calculations
+        Vector2 sliderVisualTopLeft = GlobalPosition - Origin;
         float range = MaxValue - MinValue;
         float normalizedValue = (range == 0) ? 0.0f : (this.Value - MinValue) / range;
         normalizedValue = Math.Clamp(normalizedValue, 0f, 1f);
@@ -9700,17 +9703,19 @@ public class VSlider : Slider
             normalizedValue = 1f - normalizedValue;
         }
 
-        float grabberCenterY = currentGlobalPos.Y + normalizedValue * Size.Y;
-        float grabberTopY = grabberCenterY - GrabberSize.Y / 2f;
-        grabberTopY = Math.Clamp(grabberTopY, currentGlobalPos.Y, currentGlobalPos.Y + Size.Y - GrabberSize.Y);
+        float grabberCenterY_relativeToSliderTop = normalizedValue * Size.Y;
+        float grabberTopY_relativeToSliderTop = grabberCenterY_relativeToSliderTop - GrabberSize.Y / 2f;
+        grabberTopY_relativeToSliderTop = Math.Clamp(grabberTopY_relativeToSliderTop, 0, Size.Y - GrabberSize.Y);
+        float finalGrabberTopY_global = sliderVisualTopLeft.Y + grabberTopY_relativeToSliderTop;
 
-        float xPos = currentGlobalPos.X + (Size.X / 2f) - GrabberSize.X / 2f;
-        return new Vector2(xPos, grabberTopY);
+        float grabberLeftX_relativeToSliderLeft = (Size.X / 2f) - GrabberSize.X / 2f;
+        float finalGrabberLeftX_global = sliderVisualTopLeft.X + grabberLeftX_relativeToSliderLeft;
+
+        return new Vector2(finalGrabberLeftX_global, finalGrabberTopY_global);
     }
 
     protected override void UpdateGrabberThemeVisuals()
     {
-        // This method uses grabberPressed, Focused, grabberHovered which are updated in Process()
         if (Disabled)
         {
             Style.Grabber.Current = Style.Grabber.Disabled;

@@ -6,6 +6,7 @@ namespace Cherris;
 public class HBoxContainer : Node2D
 {
     public float Separation { get; set; } = 4f;
+    public HAlignment ContentHAlignment { get; set; } = HAlignment.Center;
 
     public override void Process()
     {
@@ -35,9 +36,8 @@ public class HBoxContainer : Node2D
     {
         var visibleNode2DChildren = Children.OfType<Node2D>().Where(c => c.Visible).ToList();
 
-        // Use this.Size which now correctly reflects explicit, relative, or auto-sized dimensions
-        float currentContainerRenderWidth = this.Size.X;
-        float currentContainerRenderHeight = this.Size.Y;
+        float containerWidth = this.Size.X;
+        float containerHeight = this.Size.Y;
 
         float totalRequiredContentWidth = 0;
         if (visibleNode2DChildren.Any())
@@ -49,52 +49,69 @@ public class HBoxContainer : Node2D
             totalRequiredContentWidth += (visibleNode2DChildren.Count - 1) * Separation;
         }
 
+        float visualLeftLocalX = 0f;
+        if (this.HAlignment == HAlignment.Center)
+        {
+            visualLeftLocalX = -containerWidth / 2f;
+        }
+        else if (this.HAlignment == HAlignment.Right)
+        {
+            visualLeftLocalX = -containerWidth;
+        }
 
-        float initialContentOffsetX = 0;
-        switch (this.HAlignment) // This HAlignment is for aligning the group of children
+        float childVisualStartX_local;
+        switch (this.ContentHAlignment)
         {
             case HAlignment.Left:
-                initialContentOffsetX = 0;
+                childVisualStartX_local = visualLeftLocalX;
                 break;
             case HAlignment.Center:
-                initialContentOffsetX = (currentContainerRenderWidth - totalRequiredContentWidth) / 2f;
+                childVisualStartX_local = visualLeftLocalX + (containerWidth - totalRequiredContentWidth) / 2f;
                 break;
             case HAlignment.Right:
-                initialContentOffsetX = currentContainerRenderWidth - totalRequiredContentWidth;
+                childVisualStartX_local = visualLeftLocalX + containerWidth - totalRequiredContentWidth;
                 break;
             case HAlignment.None:
             default:
-                initialContentOffsetX = 0;
+                childVisualStartX_local = visualLeftLocalX;
                 break;
         }
 
-        float currentX = initialContentOffsetX;
+        float currentVisualX = childVisualStartX_local; // This tracks the target visual left for the next child, relative to parent's origin
+
         foreach (Node2D child in visibleNode2DChildren)
         {
-            float childY = 0;
-            switch (child.VAlignment) // Child's VAlignment for its position within container's height
+            float visualTopLocalY = 0f;
+            if (this.VAlignment == VAlignment.Center) visualTopLocalY = -containerHeight / 2f;
+            else if (this.VAlignment == VAlignment.Bottom) visualTopLocalY = -containerHeight;
+
+            float childVisualTargetY_local; // Target visual top for the child, relative to parent's origin
+            switch (child.VAlignment)
             {
                 case VAlignment.Top:
-                    childY = 0;
+                    childVisualTargetY_local = visualTopLocalY;
                     break;
                 case VAlignment.Center:
-                    childY = (currentContainerRenderHeight / 2f) - (child.Size.Y / 2f);
+                    childVisualTargetY_local = visualTopLocalY + (containerHeight - child.Size.Y) / 2f;
                     break;
                 case VAlignment.Bottom:
-                    childY = currentContainerRenderHeight - child.Size.Y;
+                    childVisualTargetY_local = visualTopLocalY + containerHeight - child.Size.Y;
                     break;
                 case VAlignment.None:
                 default:
-                    childY = 0;
+                    childVisualTargetY_local = visualTopLocalY;
                     break;
             }
-            // Position is relative to the HBoxContainer's origin
-            child.Position = new Vector2(currentX, childY);
 
-            currentX += child.Size.X;
+            // Child's Position is its Origin's location relative to parent's Origin.
+            // To place child's visual top-left at (currentVisualX, childVisualTargetY_local) [relative to parent's origin],
+            // we set child.Position to (target_visual_left + child.Origin.X, target_visual_top + child.Origin.Y)
+            child.Position = new Vector2(currentVisualX + child.Origin.X, childVisualTargetY_local + child.Origin.Y);
+
+            currentVisualX += child.Size.X;
             if (visibleNode2DChildren.IndexOf(child) < visibleNode2DChildren.Count - 1)
             {
-                currentX += Separation;
+                currentVisualX += Separation;
             }
         }
     }

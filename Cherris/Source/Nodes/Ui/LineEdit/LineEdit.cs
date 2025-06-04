@@ -58,7 +58,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false;
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = true;
+    public bool AutoScrollToShowFullText { get; set; } = false;
 
     public int TextStartIndex { get; internal set; } = 0;
 
