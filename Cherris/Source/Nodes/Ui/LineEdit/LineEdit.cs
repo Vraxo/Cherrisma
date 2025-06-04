@@ -106,6 +106,7 @@ public partial class LineEdit : Button
         Styles.Normal.BorderLength = 1;
         Styles.Focused.BorderLength = 1;
         Styles.Focused.BorderColor = DefaultTheme.FocusBorder;
+        Styles.WordWrapping = WordWrapping.NoWrap; // Ensure NoWrap for LineEdit text handling
 
         FocusChanged += OnFocusChangedHandler;
         LeftClicked += OnLeftClickedHandler;
