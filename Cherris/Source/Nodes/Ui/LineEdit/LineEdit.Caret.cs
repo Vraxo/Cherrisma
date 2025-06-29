@@ -152,7 +152,7 @@ public partial class LineEdit
                 return;
             }
 
-            var owningWindow = _parentLineEdit.GetOwningWindow() as Direct2DAppWindow;
+            Direct2DAppWindow? owningWindow = _parentLineEdit.GetOwningWindow() as Direct2DAppWindow;
             if (owningWindow == null || owningWindow.DWriteFactory == null) return; // Cannot measure text
             IDWriteFactory dwriteFactory = owningWindow.DWriteFactory;
 

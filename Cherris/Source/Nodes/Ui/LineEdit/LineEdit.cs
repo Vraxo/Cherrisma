@@ -8,34 +8,35 @@ public partial class LineEdit : Button
 {
     public static readonly Vector2 DefaultLineEditSize = new(200, 28);
 
-    private string _text = "";
     public new string Text
     {
-        get => _text;
+        get;
         set
         {
-            if (_text == value) return;
+            if (field == value) return;
 
-            string oldText = _text;
-            _text = value ?? "";
+            string oldText = field;
+            field = value ?? "";
 
-            if (_text.Length > MaxCharacters)
+            if (field.Length > MaxCharacters)
             {
-                _text = _text.Substring(0, MaxCharacters);
+                field = field.Substring(0, MaxCharacters);
             }
 
             UpdateCaretDisplayPositionAndStartIndex();
-            TextChanged?.Invoke(this, _text);
-            if (oldText.Length == 0 && _text.Length > 0)
+            TextChanged?.Invoke(this, field);
+
+            if (oldText.Length == 0 && field.Length > 0)
             {
                 FirstCharacterEntered?.Invoke(this, EventArgs.Empty);
             }
-            if (oldText.Length > 0 && _text.Length == 0)
+
+            if (oldText.Length > 0 && field.Length == 0)
             {
                 Cleared?.Invoke(this, EventArgs.Empty);
             }
         }
-    }
+    } = "";
 
     public string PlaceholderText { get; set; } = "";
     public Vector2 TextOrigin { get; set; } = new(6, 0);
@@ -47,10 +48,18 @@ public partial class LineEdit : Button
         get;
         set
         {
-            if (field == value) return;
+            if (field == value)
+            {
+                return;
+            }
+
             field = value;
             _caret.Visible = field && Editable;
-            if (!field) _caret.CaretDisplayPositionX = 0;
+            
+            if (!field)
+            {
+                _caret.CaretDisplayPositionX = 0;
+            }
         }
     } = false;
 
@@ -58,7 +67,7 @@ public partial class LineEdit : Button
     public bool ExpandWidthToText { get; set; } = false;
     public bool Secret { get; set; } = false;
     public char SecretCharacter { get; set; } = '*';
-    public bool AutoScrollToShowFullText { get; set; } = false;
+    public bool AutoScrollToShowFullText { get; set; } = true;
 
     public int TextStartIndex { get; internal set; } = 0;
 
@@ -70,7 +79,7 @@ public partial class LineEdit : Button
     public event EventHandler<string>? Confirmed;
 
     private readonly Caret _caret;
-    private readonly TextDisplayer _textDisplayer;
+    private readonly TextDisplayer TextDisplayerSub;
     private readonly PlaceholderTextDisplayer _placeholderTextDisplayer;
 
     private const float BackspaceDelay = 0.5f;
@@ -93,7 +102,7 @@ public partial class LineEdit : Button
     public LineEdit()
     {
         _caret = new Caret(this);
-        _textDisplayer = new TextDisplayer(this);
+        TextDisplayerSub = new TextDisplayer(this);
         _placeholderTextDisplayer = new PlaceholderTextDisplayer(this);
 
         Visible = true;
@@ -138,7 +147,7 @@ public partial class LineEdit : Button
     {
         base.Draw(context);
         _placeholderTextDisplayer.Draw(context);
-        _textDisplayer.Draw(context);
+        TextDisplayerSub.Draw(context);
 
         if (Selected && Editable)
         {
@@ -655,7 +664,7 @@ public partial class LineEdit : Button
 
     private void PushStateForUndo()
     {
-        if (_undoStack.Count > 0 && _undoStack.Peek().Text == _text && _undoStack.Peek().CaretPosition == CaretLogicalPosition)
+        if (_undoStack.Count > 0 && _undoStack.Peek().Text == Text && _undoStack.Peek().CaretPosition == CaretLogicalPosition)
         {
             return;
         }
@@ -669,7 +678,7 @@ public partial class LineEdit : Button
                 _undoStack.Push(state);
             }
         }
-        _undoStack.Push(new LineEditState(_text, CaretLogicalPosition, TextStartIndex));
+        _undoStack.Push(new LineEditState(Text, CaretLogicalPosition, TextStartIndex));
         _redoStack.Clear();
     }
 
@@ -677,7 +686,7 @@ public partial class LineEdit : Button
     {
         if (_undoStack.Count > 0)
         {
-            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            LineEditState currentState = new LineEditState(Text, CaretLogicalPosition, TextStartIndex);
             _redoStack.Push(currentState);
             if (_redoStack.Count > HistoryLimit)
             {
@@ -691,11 +700,11 @@ public partial class LineEdit : Button
             }
 
             LineEditState previousState = _undoStack.Pop();
-            _text = previousState.Text;
+            Text = previousState.Text;
             CaretLogicalPosition = previousState.CaretPosition;
             TextStartIndex = previousState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text);
+            TextChanged?.Invoke(this, Text);
             UpdateCaretDisplayPositionAndStartIndex();
         }
     }
@@ -704,7 +713,7 @@ public partial class LineEdit : Button
     {
         if (_redoStack.Count > 0)
         {
-            LineEditState currentState = new LineEditState(_text, CaretLogicalPosition, TextStartIndex);
+            LineEditState currentState = new LineEditState(Text, CaretLogicalPosition, TextStartIndex);
             _undoStack.Push(currentState);
             if (_undoStack.Count > HistoryLimit)
             {
@@ -718,11 +727,11 @@ public partial class LineEdit : Button
             }
 
             LineEditState nextState = _redoStack.Pop();
-            _text = nextState.Text;
+            Text = nextState.Text;
             CaretLogicalPosition = nextState.CaretPosition;
             TextStartIndex = nextState.TextStartIndex;
 
-            TextChanged?.Invoke(this, _text);
+            TextChanged?.Invoke(this, Text);
             UpdateCaretDisplayPositionAndStartIndex();
         }
     }
