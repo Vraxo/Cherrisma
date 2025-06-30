@@ -16,28 +16,33 @@ public class Node
     public static Node RootNode => SceneTree.Instance.RootNode!;
     public static SceneTree Tree => SceneTree.Instance;
 
-    public string Name { get; set; } = "";
-    public Node? Parent { get; set; } = null;
-    public List<Node> Children { get; set; } = [];
     public ProcessMode ProcessingMode = ProcessMode.Inherit;
 
-    private bool fieldActive = true;
+    [HideFromInspector]
+    public string Name { get; set; } = "";
 
+    [HideFromInspector]
+    public Node? Parent { get; set; } = null;
+
+    [HideFromInspector]
+    public List<Node> Children { get; set; } = [];
+
+    [HideFromInspector]
     public bool Active
     {
-        get => fieldActive;
+        get;
 
         set
         {
-            if (fieldActive == value)
+            if (field == value)
             {
                 return;
             }
 
-            fieldActive = value;
-            ActiveChanged?.Invoke(this, fieldActive);
+            field = value;
+            ActiveChanged?.Invoke(this, field);
         }
-    }
+    } = true;
 
     public string AbsolutePath
     {
@@ -45,7 +50,6 @@ public class Node
         {
             if (Parent is null)
             {
-
                 return "/root/";
             }
 
