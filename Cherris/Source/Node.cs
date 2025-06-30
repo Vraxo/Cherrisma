@@ -21,21 +21,23 @@ public class Node
     public List<Node> Children { get; set; } = [];
     public ProcessMode ProcessingMode = ProcessMode.Inherit;
 
+    private bool fieldActive = true;
+
     public bool Active
     {
-        get;
+        get => fieldActive;
 
         set
         {
-            if (field == value)
+            if (fieldActive == value)
             {
                 return;
             }
 
-            field = value;
-            ActiveChanged?.Invoke(this, field);
+            fieldActive = value;
+            ActiveChanged?.Invoke(this, fieldActive);
         }
-    } = true;
+    }
 
     public string AbsolutePath
     {
@@ -43,38 +45,38 @@ public class Node
         {
             if (Parent is null)
             {
+
                 return "/root/";
             }
 
             Stack<string> pathStack = new();
             Node? current = this;
 
+
             while (current is not null && current.Parent is not null)
             {
+
                 pathStack.Push(current.Name);
                 current = current.Parent;
             }
 
+
             return $"/root/{string.Join("/", pathStack)}";
         }
     }
+
 
     public delegate void ActiveEvent(Node sender, bool active);
     public delegate void ChildEvent(Node sender, Node child);
     public event ActiveEvent? ActiveChanged;
     public event ChildEvent? ChildAdded;
 
-    public virtual void Make() 
-    { 
-    }
 
-    public virtual void Start() 
-    {
-    }
+    public virtual void Make() { }
 
-    public virtual void Ready()
-    {
-    }
+    public virtual void Start() { }
+
+    public virtual void Ready() { }
 
     public virtual void Free()
     {
@@ -88,11 +90,13 @@ public class Node
         Parent?.Children.Remove(this);
     }
 
+
     public virtual void ProcessBegin() { }
 
     public virtual void Process() { }
 
     public virtual void ProcessEnd() { }
+
 
     public void PrintChildren()
     {
@@ -116,6 +120,7 @@ public class Node
         }
     }
 
+
     public virtual void Activate()
     {
         Active = true;
@@ -135,6 +140,7 @@ public class Node
             child.Deactivate();
         }
     }
+
 
     public T GetParent<T>() where T : Node
     {
@@ -280,6 +286,7 @@ public class Node
         return currentNode as T;
     }
 
+
     public T? GetChild<T>(string name) where T : Node
     {
         foreach (Node child in Children)
@@ -333,6 +340,7 @@ public class Node
 
         return null;
     }
+
 
     public Node AddChild(Node node)
     {
