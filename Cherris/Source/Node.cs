@@ -44,6 +44,7 @@ public class Node
         }
     } = true;
 
+    [HideFromInspector]
     public string AbsolutePath
     {
         get
@@ -56,25 +57,20 @@ public class Node
             Stack<string> pathStack = new();
             Node? current = this;
 
-
             while (current is not null && current.Parent is not null)
             {
-
                 pathStack.Push(current.Name);
                 current = current.Parent;
             }
-
 
             return $"/root/{string.Join("/", pathStack)}";
         }
     }
 
-
     public delegate void ActiveEvent(Node sender, bool active);
     public delegate void ChildEvent(Node sender, Node child);
     public event ActiveEvent? ActiveChanged;
     public event ChildEvent? ChildAdded;
-
 
     public virtual void Make() { }
 
@@ -93,7 +89,6 @@ public class Node
 
         Parent?.Children.Remove(this);
     }
-
 
     public virtual void ProcessBegin() { }
 
