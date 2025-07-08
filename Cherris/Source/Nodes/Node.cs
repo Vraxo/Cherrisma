@@ -96,7 +96,6 @@ public class Node
 
     public virtual void ProcessEnd() { }
 
-
     public void PrintChildren()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -119,7 +118,6 @@ public class Node
         }
     }
 
-
     public virtual void Activate()
     {
         Active = true;
@@ -139,7 +137,6 @@ public class Node
             child.Deactivate();
         }
     }
-
 
     public T GetParent<T>() where T : Node
     {
@@ -215,7 +212,8 @@ public class Node
             }
         }
 
-        return currentNode as T ?? throw new InvalidOperationException("Node is not of the expected type.");
+        return currentNode as T ?? 
+            throw new InvalidOperationException("Node is not of the expected type.");
     }
 
     public T? GetNodeOrNull<T>(string path) where T : Node
@@ -285,7 +283,6 @@ public class Node
         return currentNode as T;
     }
 
-
     public T? GetChild<T>(string name) where T : Node
     {
         foreach (Node child in Children)
@@ -339,7 +336,6 @@ public class Node
 
         return null;
     }
-
 
     public Node AddChild(Node node)
     {
