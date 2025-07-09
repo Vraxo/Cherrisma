@@ -76,6 +76,7 @@ public class Node2D : VisualItem
         set; // Changed 'field' to 'fieldScale'
     } = new(1, 1);
 
+    [HideFromInspector]
     public virtual Vector2 GlobalPosition
     {
         get
